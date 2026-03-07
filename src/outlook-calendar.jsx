@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 
 const COLORS = {
   bg: "#0f0f1a",
@@ -139,7 +139,7 @@ export default function OutlookCalendarApp() {
         fetchEvents();
       }
     }
-  }, []);
+  }, [fetchEvents]);
 
   const fetchUser = async () => {
     try {
