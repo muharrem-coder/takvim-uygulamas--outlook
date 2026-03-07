@@ -46,30 +46,49 @@ const getCat = e => CAT_COLORS[e.categories?.[0] || e._category] || CAT_COLORS["
 const REMINDERS = [{l:"5 dk",v:5},{l:"15 dk",v:15},{l:"30 dk",v:30},{l:"1 sa",v:60},{l:"1 gün",v:1440},{l:"2 gün",v:2880}];
 
 // ── HELPERS ───────────────────────────────────────────────────────────────────
-const toUTC    = d => !d ? "" : d.endsWith("Z") ? d : d + "Z";
 const pad      = n => String(n).padStart(2,"0");
-const fmtDT    = d => new Date(toUTC(d)).toLocaleString("tr-TR",{day:"2-digit",month:"long",year:"numeric",hour:"2-digit",minute:"2-digit"});
+
+// Safely parse any date string into a valid Date object
+const safeParse = d => {
+  if (!d) return new Date(NaN);
+  // Already ISO with time: "2024-03-15T10:00:00Z" or "2024-03-15T10:00:00+03:00"
+  if (d.includes("T")) {
+    // No timezone suffix → treat as UTC
+    if (!d.endsWith("Z") && !d.includes("+") && !/\d{2}:\d{2}$/.test(d.slice(-5))) {
+      return new Date(d + "Z");
+    }
+    return new Date(d);
+  }
+  // Date-only: "2024-03-15" → parse as local midnight
+  const [y, m, day] = d.split("-").map(Number);
+  return new Date(y, m - 1, day);
+};
+
+const toUTC    = d => !d ? "" : (d.includes("T") ? (d.endsWith("Z")||d.includes("+") ? d : d+"Z") : d+"T00:00:00Z");
+const fmtDT    = d => { const x=safeParse(d); return isNaN(x)?"-":x.toLocaleString("tr-TR",{day:"2-digit",month:"long",year:"numeric",hour:"2-digit",minute:"2-digit"}); };
 const fmtInput = d => { const x=new Date(d); return `${x.getFullYear()}-${pad(x.getMonth()+1)}-${pad(x.getDate())}T${pad(x.getHours())}:${pad(x.getMinutes())}`; };
-const fmtTime  = d => new Date(toUTC(d)).toLocaleTimeString("tr-TR",{hour:"2-digit",minute:"2-digit"});
-const fmtShort = d => new Date(toUTC(d)).toLocaleDateString("tr-TR",{weekday:"short",day:"numeric",month:"short"});
+const fmtTime  = d => { const x=safeParse(d); return isNaN(x)?"-":x.toLocaleTimeString("tr-TR",{hour:"2-digit",minute:"2-digit"}); };
+const fmtShort = d => { const x=safeParse(d); return isNaN(x)?"-":x.toLocaleDateString("tr-TR",{weekday:"short",day:"numeric",month:"short"}); };
 const timeUntil = d => {
-  const diff = new Date(toUTC(d)) - Date.now();
+  const x = safeParse(d); if (isNaN(x)) return "-";
+  const diff = x - Date.now();
   if (diff < 0) return "Geçti";
   const h = Math.floor(diff/3600000), m = Math.floor((diff%3600000)/60000);
   if (h > 48) return `${Math.floor(h/24)} gün`;
   if (h > 0) return `${h}s ${m}dk`;
   return `${m} dk`;
 };
-const isUrgent = d => { const diff = new Date(toUTC(d)) - Date.now(); return diff > 0 && diff < 3600000; };
-const isPast   = d => new Date(toUTC(d)) < Date.now();
+const isUrgent = d => { const x=safeParse(d); if(isNaN(x))return false; const diff=x-Date.now(); return diff>0&&diff<3600000; };
+const isPast   = d => { const x=safeParse(d); return isNaN(x)?false:x<Date.now(); };
 const getStartDT = e => e.start?.dateTime || e.start?.date || "";
 const getEndDT   = e => e.end?.dateTime   || e.end?.date   || "";
 
 // Normalize event from either source into unified format
 function normalizeEvent(e, source) {
   if (source === "google") {
-    const startDT = e.start?.dateTime || (e.start?.date ? e.start.date + "T00:00:00Z" : "");
-    const endDT   = e.end?.dateTime   || (e.end?.date   ? e.end.date   + "T00:00:00Z" : "");
+    // Google returns dateTime (with timezone) or date (all-day, YYYY-MM-DD)
+    const startDT = e.start?.dateTime || (e.start?.date ? e.start.date + "T00:00:00" : "");
+    const endDT   = e.end?.dateTime   || (e.end?.date   ? e.end.date   + "T00:00:00" : "");
     return {
       ...e,
       _id: "g_" + e.id,
@@ -120,8 +139,8 @@ function CalendarGrid({ events, onDayClick, C }) {
   const firstDay=new Date(y,m,1).getDay(), days=new Date(y,m+1,0).getDate(), today=new Date();
   const byDay={};
   events.forEach(e=>{
-    const d=new Date(toUTC(getStartDT(e)));
-    if(d.getFullYear()===y&&d.getMonth()===m){ if(!byDay[d.getDate()])byDay[d.getDate()]=[];byDay[d.getDate()].push(e); }
+    const d=safeParse(getStartDT(e));
+    if(!isNaN(d)&&d.getFullYear()===y&&d.getMonth()===m){ if(!byDay[d.getDate()])byDay[d.getDate()]=[];byDay[d.getDate()].push(e); }
   });
   const cells=[];
   for(let i=0;i<(firstDay+6)%7;i++) cells.push(null);
@@ -165,7 +184,7 @@ function CalendarGrid({ events, onDayClick, C }) {
 // ── STATS BAR ─────────────────────────────────────────────────────────────────
 function StatsBar({ events, msConnected, googleConnected, C }) {
   const upcoming=events.filter(e=>!isPast(getEndDT(e)));
-  const todayEvs=events.filter(e=>{ const d=new Date(toUTC(getStartDT(e))),n=new Date(); return d.getDate()===n.getDate()&&d.getMonth()===n.getMonth()&&d.getFullYear()===n.getFullYear(); });
+  const todayEvs=events.filter(e=>{ const d=safeParse(getStartDT(e)),n=new Date(); return d.getDate()===n.getDate()&&d.getMonth()===n.getMonth()&&d.getFullYear()===n.getFullYear(); });
   const msCount=events.filter(e=>e._source==="outlook").length;
   const ggCount=events.filter(e=>e._source==="google").length;
   return (
@@ -193,8 +212,8 @@ function EventCard({ e, onClick, C }) {
   return (
     <div onClick={onClick} className="ec" style={{background:C.card,borderRadius:"16px",padding:"14px 16px",border:`1px solid ${urgent?"rgba(255,68,102,0.4)":C.border}`,cursor:"pointer",transition:"all 0.18s",opacity:past?0.5:1,display:"flex",gap:"12px",alignItems:"flex-start"}}>
       <div style={{minWidth:"48px",textAlign:"center",background:cat.bg,borderRadius:"12px",padding:"7px 4px",flexShrink:0}}>
-        <div style={{fontSize:"9px",color:cat.text,fontWeight:700,textTransform:"uppercase",letterSpacing:0.5}}>{new Date(toUTC(startDT)).toLocaleDateString("tr-TR",{month:"short"})}</div>
-        <div style={{fontSize:"21px",fontWeight:800,color:cat.text,lineHeight:1.1}}>{new Date(toUTC(startDT)).getDate()}</div>
+        <div style={{fontSize:"9px",color:cat.text,fontWeight:700,textTransform:"uppercase",letterSpacing:0.5}}>{safeParse(startDT).toLocaleDateString("tr-TR",{month:"short"})}</div>
+        <div style={{fontSize:"21px",fontWeight:800,color:cat.text,lineHeight:1.1}}>{safeParse(startDT).getDate()}</div>
       </div>
       <div style={{flex:1,minWidth:0}}>
         <div style={{display:"flex",alignItems:"center",gap:"6px",marginBottom:"4px",flexWrap:"wrap"}}>
@@ -488,11 +507,11 @@ export default function App() {
   const allEvents = useMemo(()=>{
     const ms = msEvents.map(e=>normalizeEvent(e,"outlook"));
     const gg = ggEvents.map(e=>normalizeEvent(e,"google"));
-    return [...ms,...gg].sort((a,b)=>new Date(toUTC(getStartDT(a)))-new Date(toUTC(getStartDT(b))));
+    return [...ms,...gg].sort((a,b)=>safeParse(getStartDT(a))-safeParse(getStartDT(b)));
   },[msEvents,ggEvents]);
 
   const filteredEvents = useMemo(()=>{
-    let evs = allEvents.filter(e=>new Date(toUTC(getStartDT(e)))>Date.now()-3600000);
+    let evs = allEvents.filter(e=>safeParse(getStartDT(e))>Date.now()-3600000);
     if(search) evs=evs.filter(e=>
       e.subject?.toLowerCase().includes(search.toLowerCase())||
       e.location?.displayName?.toLowerCase().includes(search.toLowerCase())||
@@ -501,7 +520,7 @@ export default function App() {
     if(activeFilter==="outlook")  evs=evs.filter(e=>e._source==="outlook");
     else if(activeFilter==="google") evs=evs.filter(e=>e._source==="google");
     else if(activeFilter==="urgent") evs=evs.filter(e=>isUrgent(getStartDT(e)));
-    else if(activeFilter==="today") evs=evs.filter(e=>{ const d=new Date(toUTC(getStartDT(e))),n=new Date(); return d.getDate()===n.getDate()&&d.getMonth()===n.getMonth()&&d.getFullYear()===n.getFullYear(); });
+    else if(activeFilter==="today") evs=evs.filter(e=>{ const d=safeParse(getStartDT(e)),n=new Date(); return d.getDate()===n.getDate()&&d.getMonth()===n.getMonth()&&d.getFullYear()===n.getFullYear(); });
     return evs;
   },[allEvents,search,activeFilter]);
 
@@ -547,7 +566,7 @@ export default function App() {
   useEffect(()=>{
     if(notifPerm!=="granted"||allEvents.length===0) return;
     const timers=allEvents.map(e=>{
-      const delay=new Date(toUTC(getStartDT(e))).getTime()-(e.reminderMinutesBeforeStart||15)*60000-Date.now();
+      const delay=safeParse(getStartDT(e)).getTime()-(e.reminderMinutesBeforeStart||15)*60000-Date.now();
       if(delay>0&&delay<24*3600000) return setTimeout(()=>new Notification(`⏰ ${e.subject}`,{body:fmtTime(getStartDT(e)),icon:"/logo192.png"}),delay);
       return null;
     }).filter(Boolean);
@@ -642,7 +661,7 @@ export default function App() {
       const now=new Date().toISOString(), future=new Date(Date.now()+60*24*3600000).toISOString();
       const r=await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${now}&timeMax=${future}&orderBy=startTime&singleEvents=true&maxResults=50`,{headers:{Authorization:`Bearer ${token}`}});
       const data=await r.json();
-      if(data.items) setGgEvents(data.items);
+      if(data.items) setGgEvents(data.items.filter(e=>e.status!=="cancelled"));
     } catch { showToast("Google Calendar yüklenemedi","error"); }
     setLoadingGg(false);
   };
@@ -877,8 +896,8 @@ export default function App() {
                       {upcoming.slice(0,8).map(e=>(
                         <div key={e._id} onClick={()=>setSelected(e)} className="ec" style={{display:"flex",gap:"10px",padding:"12px 14px",background:C.card,borderRadius:"14px",cursor:"pointer",border:"1px solid "+C.border,borderLeft:`3px solid ${e._source==="google"?"#4285f4":"#0078d4"}`,transition:"all 0.15s"}}>
                           <div style={{minWidth:"36px",textAlign:"center"}}>
-                            <div style={{fontSize:"9px",color:C.muted,textTransform:"uppercase"}}>{new Date(toUTC(getStartDT(e))).toLocaleDateString("tr-TR",{month:"short"})}</div>
-                            <div style={{fontSize:"18px",fontWeight:800,color:e._source==="google"?"#4285f4":"#0078d4",lineHeight:1}}>{new Date(toUTC(getStartDT(e))).getDate()}</div>
+                            <div style={{fontSize:"9px",color:C.muted,textTransform:"uppercase"}}>{safeParse(getStartDT(e)).toLocaleDateString("tr-TR",{month:"short"})}</div>
+                            <div style={{fontSize:"18px",fontWeight:800,color:e._source==="google"?"#4285f4":"#0078d4",lineHeight:1}}>{safeParse(getStartDT(e)).getDate()}</div>
                           </div>
                           <div style={{flex:1,minWidth:0}}>
                             <div style={{fontWeight:600,fontSize:"13px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{e.subject}</div>
@@ -947,8 +966,8 @@ export default function App() {
                   {upcoming.slice(0,5).map(e=>(
                     <div key={e._id} onClick={()=>setSelected(e)} style={{display:"flex",gap:"10px",padding:"12px",background:C.card,borderRadius:"14px",marginBottom:"8px",cursor:"pointer",border:"1px solid "+C.border,borderLeft:`3px solid ${e._source==="google"?"#4285f4":"#0078d4"}`}}>
                       <div style={{textAlign:"center",minWidth:"36px"}}>
-                        <div style={{fontSize:"9px",color:C.muted,textTransform:"uppercase"}}>{new Date(toUTC(getStartDT(e))).toLocaleDateString("tr-TR",{month:"short"})}</div>
-                        <div style={{fontSize:"18px",fontWeight:800,color:e._source==="google"?"#4285f4":"#0078d4",lineHeight:1}}>{new Date(toUTC(getStartDT(e))).getDate()}</div>
+                        <div style={{fontSize:"9px",color:C.muted,textTransform:"uppercase"}}>{safeParse(getStartDT(e)).toLocaleDateString("tr-TR",{month:"short"})}</div>
+                        <div style={{fontSize:"18px",fontWeight:800,color:e._source==="google"?"#4285f4":"#0078d4",lineHeight:1}}>{safeParse(getStartDT(e)).getDate()}</div>
                       </div>
                       <div style={{flex:1,minWidth:0}}>
                         <div style={{fontWeight:600,fontSize:"13px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{e.subject}</div>
