@@ -17,7 +17,7 @@ const COLORS = {
   danger: "#ef4444",
 };
 
-const CLIENT_ID = "YOUR_CLIENT_ID_HERE"; // Buraya Azure App Registration Client ID girilmeli
+const CLIENT_ID = "774d7d5a-1c96-42e8-8ce0-41fa960bab14"; // Buraya Azure App Registration Client ID girilmeli
 const REDIRECT_URI = typeof window !== "undefined" ? window.location.origin : "";
 const SCOPES = ["Calendars.ReadWrite", "User.Read"];
 
