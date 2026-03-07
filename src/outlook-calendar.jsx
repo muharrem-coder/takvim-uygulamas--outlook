@@ -37,6 +37,20 @@ function RippleButton({ onClick, style, children, disabled, className, ...props 
   );
 }
 
+// Animated modal hook: call close() to animate then unmount
+function useAnimatedModal(setter) {
+  const [closing, setClosing] = useState(false);
+  const close = useCallback(() => {
+    setClosing(true);
+    setTimeout(() => { setClosing(false); setter(null); }, 300);
+  }, [setter]);
+  const closeBool = useCallback(() => {
+    setClosing(true);
+    setTimeout(() => { setClosing(false); setter(false); }, 300);
+  }, [setter]);
+  return [closing, close, closeBool];
+}
+
 function AnimatedCard({ children, index = 0 }) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
@@ -95,10 +109,10 @@ const THEMES = {
     googleSolid:"linear-gradient(135deg,#4285f4,#34a853)",
   },
   light: {
-    bg:"#f5f5ff", surface:"#ffffff", card:"#ffffff", header:"#6d28d9",
-    teal:"#6d28d9", accent:"#06b6d4", text:"#1a1a2e", muted:"#6b7280",
-    border:"#e5e7eb", success:"#10b981", warning:"#f59e0b", danger:"#ef4444",
-    navBg:"#ffffff", tag:"#f3f4f6",
+    bg:"#eef2ff", surface:"#ffffff", card:"#ffffff", header:"linear-gradient(135deg,#6d28d9,#4f46e5)",
+    teal:"#6d28d9", accent:"#06b6d4", text:"#1e1b4b", muted:"#6b7280",
+    border:"#e0e7ff", success:"#059669", warning:"#d97706", danger:"#dc2626",
+    navBg:"#ffffff", tag:"#f5f3ff",
     gradient:"linear-gradient(135deg,#6d28d9,#06b6d4)",
     ms:"linear-gradient(135deg,#0078d4,#106ebe)",
     google:"linear-gradient(135deg,#ea4335,#fbbc04,#34a853,#4285f4)",
@@ -106,13 +120,22 @@ const THEMES = {
   }
 };
 
-const CAT_COLORS = {
+const CAT_COLORS_DARK = {
   "Toplantı": { bg:"#1e3a5f", text:"#60a5fa", dot:"#3b82f6" },
   "Kişisel":  { bg:"#3b1f5e", text:"#c084fc", dot:"#a855f7" },
   "İş":       { bg:"#1e4d3b", text:"#34d399", dot:"#10b981" },
   "Önemli":   { bg:"#5c1c1c", text:"#fca5a5", dot:"#ef4444" },
   "Diğer":    { bg:"#1e3a2e", text:"#6ee7b7", dot:"#059669" },
 };
+const CAT_COLORS_LIGHT = {
+  "Toplantı": { bg:"#dbeafe", text:"#1d4ed8", dot:"#3b82f6" },
+  "Kişisel":  { bg:"#f3e8ff", text:"#7e22ce", dot:"#a855f7" },
+  "İş":       { bg:"#dcfce7", text:"#15803d", dot:"#22c55e" },
+  "Önemli":   { bg:"#fee2e2", text:"#b91c1c", dot:"#ef4444" },
+  "Diğer":    { bg:"#d1fae5", text:"#065f46", dot:"#10b981" },
+};
+// Will be set based on theme - default dark
+let CAT_COLORS = CAT_COLORS_DARK;
 const getCat = e => CAT_COLORS[e.categories?.[0] || e._category] || CAT_COLORS["Diğer"];
 const REMINDERS = [{l:"5 dk",v:5},{l:"15 dk",v:15},{l:"30 dk",v:30},{l:"1 sa",v:60},{l:"1 gün",v:1440},{l:"2 gün",v:2880}];
 
@@ -312,11 +335,16 @@ function EventCard({ e, onClick, C, onRemove }) {
 function DetailModal({ event, onClose, onDelete, C, isMobile }) {
   const cat=getCat(event);
   const startDT=getStartDT(event), endDT=getEndDT(event);
+  const [closing, setClosing] = useState(false);
+  const handleClose = useCallback(() => {
+    setClosing(true);
+    setTimeout(() => onClose(), 290);
+  }, [onClose]);
   const wrap=isMobile?{position:"fixed",inset:0,background:"rgba(0,0,0,0.7)",zIndex:300,display:"flex",alignItems:"flex-end"}:{position:"fixed",inset:0,background:"rgba(0,0,0,0.6)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center"};
   const box=isMobile?{background:C.surface,borderRadius:"24px 24px 0 0",padding:"24px",width:"100%",maxHeight:"85vh",overflowY:"auto"}:{background:C.surface,borderRadius:"24px",padding:"32px",width:"100%",maxWidth:"520px",maxHeight:"85vh",overflowY:"auto",boxShadow:"0 30px 80px rgba(0,0,0,0.5)"};
   return (
-    <div onClick={onClose} className="modal-backdrop" style={wrap}>
-      <div onClick={e=>e.stopPropagation()} className={isMobile?"modal-content-mobile":"modal-content-desktop"} style={box}>
+    <div onClick={handleClose} className={closing?"modal-backdrop-out":"modal-backdrop"} style={wrap}>
+      <div onClick={e=>e.stopPropagation()} className={closing?(isMobile?"modal-content-mobile-out":"modal-content-desktop-out"):(isMobile?"modal-content-mobile":"modal-content-desktop")} style={box}>
         {isMobile&&<div style={{width:"40px",height:"4px",background:C.border,borderRadius:"2px",margin:"0 auto 20px"}}/>}
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"16px"}}>
           <div style={{flex:1}}>
@@ -326,7 +354,7 @@ function DetailModal({ event, onClose, onDelete, C, isMobile }) {
             </div>
             <h2 style={{margin:0,fontSize:"20px",fontWeight:800,lineHeight:1.3}}>{event.subject}</h2>
           </div>
-          {!isMobile&&<button onClick={onClose} style={{background:"none",border:"none",color:C.muted,fontSize:"22px",cursor:"pointer",marginLeft:"12px"}}>✕</button>}
+          {!isMobile&&<button onClick={handleClose} style={{background:"none",border:"none",color:C.muted,fontSize:"22px",cursor:"pointer",marginLeft:"12px"}}>✕</button>}
         </div>
         <div style={{background:C.tag,borderRadius:"16px",padding:"16px",marginBottom:"16px",display:"flex",flexDirection:"column",gap:"10px"}}>
           <div style={{display:"flex",gap:"12px",fontSize:"14px"}}><span>🗓️</span><span style={{color:C.text}}>{fmtDT(startDT)}</span></div>
@@ -357,7 +385,7 @@ function DetailModal({ event, onClose, onDelete, C, isMobile }) {
         )}
         {event.bodyPreview&&<div style={{padding:"14px",background:C.tag,borderRadius:"12px",color:C.muted,fontSize:"14px",lineHeight:1.6,marginBottom:"20px"}}>{event.bodyPreview}</div>}
         <div style={{display:"flex",gap:"10px"}}>
-          <button onClick={onClose} style={{flex:1,padding:"13px",borderRadius:"12px",background:C.tag,border:"none",color:C.muted,fontSize:"15px",fontWeight:600,cursor:"pointer"}}>Kapat</button>
+          <button onClick={handleClose} style={{flex:1,padding:"13px",borderRadius:"12px",background:C.tag,border:"none",color:C.muted,fontSize:"15px",fontWeight:600,cursor:"pointer"}}>Kapat</button>
           <button onClick={()=>onDelete(event)} style={{flex:1,padding:"13px",borderRadius:"12px",background:"rgba(255,68,102,0.1)",border:"1px solid rgba(255,68,102,0.3)",color:C.danger,fontSize:"15px",fontWeight:600,cursor:"pointer"}}>🗑️ Sil</button>
         </div>
       </div>
@@ -479,62 +507,111 @@ function AddForm({ form, setForm, onSave, onCancel, saving, C, msConnected, goog
 
 // ── ACCOUNT PANEL ─────────────────────────────────────────────────────────────
 function AccountPanel({ msUser, googleUser, onConnectMs, onConnectGoogle, onDisconnectMs, onDisconnectGoogle, C, isMobile, onClose }) {
+  const [closing, setClosing] = useState(false);
+  const handleClose = useCallback(() => {
+    setClosing(true);
+    setTimeout(() => onClose(), 290);
+  }, [onClose]);
   const wrap = isMobile
-    ? {position:"fixed",inset:0,background:"rgba(0,0,0,0.7)",zIndex:300,display:"flex",alignItems:"flex-end"}
+    ? {position:"fixed",inset:0,background:"rgba(0,0,0,0.72)",zIndex:300,display:"flex",alignItems:"flex-end"}
     : {position:"fixed",inset:0,background:"rgba(0,0,0,0.6)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center"};
   const box = isMobile
-    ? {background:C.surface,borderRadius:"24px 24px 0 0",padding:"24px",width:"100%",maxHeight:"85vh",overflowY:"auto"}
-    : {background:C.surface,borderRadius:"24px",padding:"32px",width:"100%",maxWidth:"460px",boxShadow:"0 30px 80px rgba(0,0,0,0.5)"};
+    ? {background:C.surface,borderRadius:"28px 28px 0 0",padding:"28px 24px 32px",width:"100%",maxHeight:"90vh",overflowY:"auto"}
+    : {background:C.surface,borderRadius:"28px",padding:"36px",width:"100%",maxWidth:"480px",boxShadow:"0 40px 100px rgba(0,0,0,0.55)"};
+
+  const AccountRow = ({ icon, title, subtitle, connected, user, onConnect, onDisconnect, accentColor, bgColor }) => (
+    <div style={{background:C.card,borderRadius:"20px",padding:"20px",border:`1px solid ${connected ? accentColor+"44" : C.border}`,transition:"all 0.3s ease",boxShadow:connected?`0 4px 20px ${accentColor}22`:"none"}}>
+      <div style={{display:"flex",alignItems:"center",gap:"14px"}}>
+        {/* Icon */}
+        <div style={{width:"52px",height:"52px",borderRadius:"16px",background:bgColor,display:"flex",alignItems:"center",justifyContent:"center",fontSize:"26px",flexShrink:0,boxShadow:`0 4px 14px ${accentColor}33`}}>
+          {icon}
+        </div>
+        {/* Info */}
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{fontWeight:700,fontSize:"16px",color:C.text}}>{title}</div>
+          {connected && user ? (
+            <div style={{fontSize:"13px",color:C.muted,marginTop:"3px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+              <span style={{color:accentColor,fontWeight:600}}>✓ Bağlı</span>
+              {" · "}{user.displayName||user.name||user.mail||user.email}
+            </div>
+          ) : (
+            <div style={{fontSize:"13px",color:C.muted,marginTop:"3px"}}>Bağlı değil</div>
+          )}
+        </div>
+        {/* Button */}
+        {connected ? (
+          <RippleButton onClick={onDisconnect} style={{padding:"9px 16px",borderRadius:"12px",background:"rgba(255,68,102,0.1)",border:"1px solid rgba(255,68,102,0.25)",color:"#ff4466",fontSize:"13px",fontWeight:700,flexShrink:0,transition:"all 0.2s"}}>
+            Çıkış
+          </RippleButton>
+        ) : (
+          <RippleButton onClick={onConnect} style={{padding:"9px 16px",borderRadius:"12px",background:`${accentColor}22`,border:`1px solid ${accentColor}44`,color:accentColor,fontSize:"13px",fontWeight:700,flexShrink:0,transition:"all 0.2s"}}>
+            Bağlan
+          </RippleButton>
+        )}
+      </div>
+      {/* Connected details */}
+      {connected && user && (
+        <div style={{marginTop:"14px",padding:"12px 14px",background:C.tag,borderRadius:"12px",display:"flex",gap:"10px",alignItems:"center"}}>
+          <div style={{width:"32px",height:"32px",borderRadius:"50%",background:`${accentColor}33`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:"14px",fontWeight:800,color:accentColor,flexShrink:0}}>
+            {((user.displayName||user.name||user.mail||user.email||"?")[0]).toUpperCase()}
+          </div>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{fontSize:"13px",fontWeight:600,color:C.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{user.displayName||user.name||"Kullanıcı"}</div>
+            <div style={{fontSize:"12px",color:C.muted,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{user.mail||user.userPrincipalName||user.email||""}</div>
+          </div>
+          <div style={{fontSize:"11px",fontWeight:700,padding:"4px 10px",borderRadius:"20px",background:`${accentColor}22`,color:accentColor,flexShrink:0}}>Aktif</div>
+        </div>
+      )}
+    </div>
+  );
+
   return (
-    <div onClick={onClose} style={wrap}>
-      <div onClick={e=>e.stopPropagation()} style={box}>
-        {isMobile&&<div style={{width:"40px",height:"4px",background:C.border,borderRadius:"2px",margin:"0 auto 20px"}}/>}
+    <div onClick={handleClose} className={closing?"modal-backdrop-out":"modal-backdrop"} style={wrap}>
+      <div onClick={e=>e.stopPropagation()} className={isMobile?"modal-content-mobile":"modal-content-desktop"} style={box}>
+        {isMobile && <div style={{width:"44px",height:"5px",background:C.border,borderRadius:"3px",margin:"0 auto 24px"}}/>}
+
+        {/* Header */}
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"24px"}}>
-          <h3 style={{margin:0,fontSize:"20px",fontWeight:700}}>🔗 Hesap Bağlantıları</h3>
-          {!isMobile&&<button onClick={onClose} style={{background:"none",border:"none",color:C.muted,fontSize:"22px",cursor:"pointer"}}>✕</button>}
+          <div>
+            <h3 style={{margin:0,fontSize:"22px",fontWeight:800,color:C.text}}>🔗 Hesap Bağlantıları</h3>
+            <p style={{margin:"4px 0 0",fontSize:"13px",color:C.muted}}>
+              {[msUser,googleUser].filter(Boolean).length} / 2 hesap bağlı
+            </p>
+          </div>
+          {!isMobile && (
+            <button onClick={onClose} style={{background:C.tag,border:"none",color:C.muted,fontSize:"18px",cursor:"pointer",padding:"8px 12px",borderRadius:"12px",transition:"all 0.2s"}}>✕</button>
+          )}
         </div>
 
-        {/* Outlook */}
-        <div style={{background:C.card,borderRadius:"16px",padding:"20px",marginBottom:"14px",border:"1px solid "+C.border}}>
-          <div style={{display:"flex",alignItems:"center",gap:"14px"}}>
-            <div style={{width:"44px",height:"44px",borderRadius:"12px",background:"rgba(0,120,212,0.2)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"24px",flexShrink:0}}>📘</div>
-            <div style={{flex:1}}>
-              <div style={{fontWeight:700,fontSize:"16px"}}>Microsoft Outlook</div>
-              {msUser ? (
-                <div style={{fontSize:"13px",color:C.muted,marginTop:"2px"}}>{msUser.displayName} · {msUser.mail||msUser.userPrincipalName}</div>
-              ) : (
-                <div style={{fontSize:"13px",color:C.muted,marginTop:"2px"}}>Bağlı değil</div>
-              )}
-            </div>
-            {msUser ? (
-              <button onClick={onDisconnectMs} style={{padding:"8px 14px",borderRadius:"10px",background:"rgba(255,68,102,0.1)",border:"1px solid rgba(255,68,102,0.3)",color:C.danger,fontSize:"13px",fontWeight:600,cursor:"pointer",flexShrink:0}}>Çıkış</button>
-            ) : (
-              <button onClick={onConnectMs} style={{padding:"8px 14px",borderRadius:"10px",background:"rgba(0,120,212,0.2)",border:"1px solid rgba(0,120,212,0.4)",color:"#0078d4",fontSize:"13px",fontWeight:600,cursor:"pointer",flexShrink:0}}>Bağlan</button>
-            )}
+        {/* Progress bar */}
+        <div style={{marginBottom:"24px"}}>
+          <div style={{height:"6px",background:C.border,borderRadius:"3px",overflow:"hidden"}}>
+            <div style={{height:"100%",borderRadius:"3px",background:C.gradient,width:`${[msUser,googleUser].filter(Boolean).length * 50}%`,transition:"width 0.6s cubic-bezier(0.34,1.56,0.64,1)"}}/> 
           </div>
         </div>
 
-        {/* Google */}
-        <div style={{background:C.card,borderRadius:"16px",padding:"20px",marginBottom:"24px",border:"1px solid "+C.border}}>
-          <div style={{display:"flex",alignItems:"center",gap:"14px"}}>
-            <div style={{width:"44px",height:"44px",borderRadius:"12px",background:"rgba(66,133,244,0.2)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"24px",flexShrink:0}}>📗</div>
-            <div style={{flex:1}}>
-              <div style={{fontWeight:700,fontSize:"16px"}}>Google Calendar</div>
-              {googleUser ? (
-                <div style={{fontSize:"13px",color:C.muted,marginTop:"2px"}}>{googleUser.name} · {googleUser.email}</div>
-              ) : (
-                <div style={{fontSize:"13px",color:C.muted,marginTop:"2px"}}>Bağlı değil</div>
-              )}
-            </div>
-            {googleUser ? (
-              <button onClick={onDisconnectGoogle} style={{padding:"8px 14px",borderRadius:"10px",background:"rgba(255,68,102,0.1)",border:"1px solid rgba(255,68,102,0.3)",color:C.danger,fontSize:"13px",fontWeight:600,cursor:"pointer",flexShrink:0}}>Çıkış</button>
-            ) : (
-              <button onClick={onConnectGoogle} style={{padding:"8px 14px",borderRadius:"10px",background:"rgba(66,133,244,0.2)",border:"1px solid rgba(66,133,244,0.4)",color:"#4285f4",fontSize:"13px",fontWeight:600,cursor:"pointer",flexShrink:0}}>Bağlan</button>
-            )}
-          </div>
+        {/* Account rows */}
+        <div style={{display:"flex",flexDirection:"column",gap:"14px",marginBottom:"24px"}}>
+          <AccountRow
+            icon="📘" title="Microsoft Outlook" connected={!!msUser} user={msUser}
+            onConnect={onConnectMs} onDisconnect={onDisconnectMs}
+            accentColor="#0078d4" bgColor="rgba(0,120,212,0.2)"
+          />
+          <AccountRow
+            icon="📗" title="Google Calendar" connected={!!googleUser} user={googleUser}
+            onConnect={onConnectGoogle} onDisconnect={onDisconnectGoogle}
+            accentColor="#4285f4" bgColor="rgba(66,133,244,0.2)"
+          />
         </div>
 
-        <button onClick={onClose} style={{width:"100%",padding:"14px",borderRadius:"14px",background:C.tag,border:"none",color:C.muted,fontSize:"15px",fontWeight:600,cursor:"pointer"}}>Kapat</button>
+        {/* Info note */}
+        <div style={{padding:"14px 16px",background:C.tag,borderRadius:"14px",fontSize:"13px",color:C.muted,lineHeight:1.6,marginBottom:"20px"}}>
+          💡 Her iki hesabı da bağlarsanız etkinlik eklerken hangi takvime kaydedileceğini seçebilirsiniz.
+        </div>
+
+        <RippleButton onClick={handleClose} style={{width:"100%",padding:"14px",borderRadius:"14px",background:C.gradient,border:"none",color:"white",fontSize:"15px",fontWeight:700}}>
+          Tamam
+        </RippleButton>
       </div>
     </div>
   );
@@ -545,6 +622,8 @@ export default function App() {
   const isMobile = useIsMobile();
   const [themeKey, setThemeKey] = useState(()=>localStorage.getItem("theme")||"dark");
   const C = THEMES[themeKey];
+  // Update category colors based on theme
+  CAT_COLORS = themeKey === "dark" ? CAT_COLORS_DARK : CAT_COLORS_LIGHT;
   const toggleTheme = ()=>{ const t=themeKey==="dark"?"light":"dark"; setThemeKey(t); localStorage.setItem("theme",t); };
 
   // Auth states
@@ -573,11 +652,31 @@ export default function App() {
     return curr > prev ? "pg-right" : "pg-left";
   };
   const [selected,      setSelected]      = useState(null);
+  const [selectedClosing, setSelectedClosing] = useState(false);
+  const closeSelected = useCallback(() => {
+    setSelectedClosing(true);
+    setTimeout(() => { setSelectedClosing(false); setSelected(null); }, 290);
+  }, []);
   const [dayEvents,     setDayEvents]     = useState(null);
+  const [dayEventsClosing, setDayEventsClosing] = useState(false);
+  const closeDayEvents = useCallback(() => {
+    setDayEventsClosing(true);
+    setTimeout(() => { setDayEventsClosing(false); setDayEvents(null); }, 300);
+  }, []);
   const [toast,         setToast]         = useState(null);
   const [saving,        setSaving]        = useState(false);
   const [showAddPanel,  setShowAddPanel]  = useState(false);
+  const [addPanelClosing, setAddPanelClosing] = useState(false);
+  const closeAddPanel = useCallback(() => {
+    setAddPanelClosing(true);
+    setTimeout(() => { setAddPanelClosing(false); setShowAddPanel(false); }, 320);
+  }, []);
   const [showAccounts,  setShowAccounts]  = useState(false);
+  const [accountsClosing, setAccountsClosing] = useState(false);
+  const closeAccounts = useCallback(() => {
+    setAccountsClosing(true);
+    setTimeout(() => { setAccountsClosing(false); setShowAccounts(false); }, 300);
+  }, []);
   const [search,        setSearch]        = useState("");
   const [activeFilter,  setActiveFilter]  = useState("all");
   const [demoMode,      setDemoMode]      = useState(false);
@@ -766,7 +865,7 @@ export default function App() {
       if(target==="google") setGgEvents(prev=>[...prev,e]);
       else setMsEvents(prev=>[...prev,e]);
       showToast(`✅ ${target==="google"?"Google Calendar":"Outlook"}'a eklendi!`);
-      resetForm(); if(isMobile) setTab("list"); else setShowAddPanel(false); return;
+      resetForm(); if(isMobile) changeTab("list"); else closeAddPanel(); return;
     }
 
     setSaving(true);
@@ -776,7 +875,7 @@ export default function App() {
         const body={subject:form.subject,start:{dateTime:new Date(form.start).toISOString(),timeZone:"Europe/Istanbul"},end:{dateTime:new Date(form.end).toISOString(),timeZone:"Europe/Istanbul"},location:{displayName:form.location},body:{contentType:"text",content:form.body},isReminderOn:true,reminderMinutesBeforeStart:form.reminder,categories:[form.category]};
         if(form.attendees?.length) body.attendees=form.attendees.map(a=>({...a,type:"required"}));
         const res=await fetch("https://graph.microsoft.com/v1.0/me/events",{method:"POST",headers:{Authorization:`Bearer ${token}`,"Content-Type":"application/json"},body:JSON.stringify(body)});
-        if(res.ok){ const ev=await res.json(); setMsEvents(prev=>[...prev,ev]); showToast("✅ Outlook'a kaydedildi!"); resetForm(); if(isMobile)setTab("list"); else setShowAddPanel(false); }
+        if(res.ok){ const ev=await res.json(); setMsEvents(prev=>[...prev,ev]); showToast("✅ Outlook'a kaydedildi!"); resetForm(); if(isMobile)changeTab("list"); else closeAddPanel(); }
         else { const err=await res.json(); showToast("Hata: "+(err.error?.message||""),"error"); }
       } catch { showToast("Bağlantı hatası","error"); }
     } else {
@@ -785,7 +884,7 @@ export default function App() {
         const body={summary:form.subject,start:{dateTime:new Date(form.start).toISOString(),timeZone:"Europe/Istanbul"},end:{dateTime:new Date(form.end).toISOString(),timeZone:"Europe/Istanbul"},location:form.location,description:form.body,reminders:{useDefault:false,overrides:[{method:"popup",minutes:form.reminder}]}};
         if(form.attendees?.length) body.attendees=form.attendees.map(a=>({email:a.emailAddress.address,displayName:a.emailAddress.name}));
         const res=await fetch("https://www.googleapis.com/calendar/v3/calendars/primary/events",{method:"POST",headers:{Authorization:`Bearer ${token}`,"Content-Type":"application/json"},body:JSON.stringify(body)});
-        if(res.ok){ const ev=await res.json(); setGgEvents(prev=>[...prev,ev]); showToast("✅ Google Calendar'a kaydedildi!"); resetForm(); if(isMobile)setTab("list"); else setShowAddPanel(false); }
+        if(res.ok){ const ev=await res.json(); setGgEvents(prev=>[...prev,ev]); showToast("✅ Google Calendar'a kaydedildi!"); resetForm(); if(isMobile)changeTab("list"); else closeAddPanel(); }
         else { const err=await res.json(); showToast("Hata: "+(err.error?.message||""),"error"); }
       } catch { showToast("Bağlantı hatası","error"); }
     }
@@ -795,13 +894,13 @@ export default function App() {
   // ── Delete Event ───────────────────────────────────────────────────────────
   const deleteEvent=async(event)=>{
     const rawId = event._raw?.id || event.id;
-    if(demoMode){ if(event._source==="google")setGgEvents(p=>p.filter(e=>e.id!==rawId)); else setMsEvents(p=>p.filter(e=>e.id!==rawId)); showToast("Silindi"); setSelected(null); return; }
+    if(demoMode){ if(event._source==="google")setGgEvents(p=>p.filter(e=>e.id!==rawId)); else setMsEvents(p=>p.filter(e=>e.id!==rawId)); showToast("Silindi"); closeSelected(); return; }
     if(event._source==="outlook"){
       const token=await getMsToken(); if(!token) return;
-      try{ await fetch(`https://graph.microsoft.com/v1.0/me/events/${rawId}`,{method:"DELETE",headers:{Authorization:`Bearer ${token}`}}); setMsEvents(p=>p.filter(e=>e.id!==rawId)); showToast("Outlook'tan silindi"); setSelected(null); } catch { showToast("Silinemedi","error"); }
+      try{ await fetch(`https://graph.microsoft.com/v1.0/me/events/${rawId}`,{method:"DELETE",headers:{Authorization:`Bearer ${token}`}}); setMsEvents(p=>p.filter(e=>e.id!==rawId)); showToast("Outlook'tan silindi"); closeSelected(); } catch { showToast("Silinemedi","error"); }
     } else {
       const token=getGgToken(); if(!token) return;
-      try{ await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${rawId}`,{method:"DELETE",headers:{Authorization:`Bearer ${token}`}}); setGgEvents(p=>p.filter(e=>e.id!==rawId)); showToast("Google Calendar'dan silindi"); setSelected(null); } catch { showToast("Silinemedi","error"); }
+      try{ await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${rawId}`,{method:"DELETE",headers:{Authorization:`Bearer ${token}`}}); setGgEvents(p=>p.filter(e=>e.id!==rawId)); showToast("Google Calendar'dan silindi"); closeSelected(); } catch { showToast("Silinemedi","error"); }
     }
   };
 
@@ -835,8 +934,9 @@ export default function App() {
         <style>{`
           @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
           .lc{animation:float 4s ease-in-out infinite}
-          .lbtn{transition:all 0.2s;cursor:pointer}
-          .lbtn:hover{transform:translateY(-2px)}
+          .lbtn{transition:all 0.25s cubic-bezier(0.34,1.56,0.64,1)!important;cursor:pointer!important}
+          .lbtn:hover{transform:translateY(-3px) scale(1.02)!important;filter:brightness(1.1)}
+          .lbtn:active{transform:scale(0.97)!important}
         `}</style>
         <div className="lc" style={{width:"100%",maxWidth:"420px"}}>
           <div style={{textAlign:"center",marginBottom:"32px"}}>
@@ -894,13 +994,23 @@ export default function App() {
         .modal-content-desktop{animation:modalPopIn 0.35s cubic-bezier(0.34,1.56,0.64,1)}
         .modal-content-mobile{animation:sheetSlideUp 0.4s cubic-bezier(0.25,0.46,0.45,0.94)}
         @keyframes panelSlideIn{from{opacity:0;transform:translateX(100%)}to{opacity:1;transform:translateX(0)}}
+        @keyframes panelSlideOut{from{opacity:1;transform:translateX(0)}to{opacity:0;transform:translateX(100%)}}
         .add-panel{animation:panelSlideIn 0.38s cubic-bezier(0.25,0.46,0.45,0.94)}
+        .add-panel-out{animation:panelSlideOut 0.32s cubic-bezier(0.55,0,1,0.45) forwards}
+
+        @keyframes modalBackdropOut{from{opacity:1}to{opacity:0}}
+        @keyframes modalPopOut{from{opacity:1;transform:scale(1) translateY(0)}to{opacity:0;transform:scale(0.88) translateY(20px)}}
+        @keyframes sheetSlideDown{from{opacity:1;transform:translateY(0)}to{opacity:0;transform:translateY(100%)}}
+        .modal-backdrop-out{animation:modalBackdropOut 0.28s ease forwards}
+        .modal-content-desktop-out{animation:modalPopOut 0.28s cubic-bezier(0.55,0,1,0.45) forwards}
+        .modal-content-mobile-out{animation:sheetSlideDown 0.32s cubic-bezier(0.55,0,1,0.45) forwards}
         @keyframes rippleAnim{from{transform:scale(0);opacity:1}to{transform:scale(4);opacity:0}}
         @keyframes toastIn{from{opacity:0;transform:translateX(-50%) translateY(-16px) scale(0.9)}to{opacity:1;transform:translateX(-50%) translateY(0) scale(1)}}
         .toast-in{animation:toastIn 0.35s cubic-bezier(0.34,1.56,0.64,1)}
         @keyframes shimmer{0%{background:linear-gradient(90deg,${C.border} 25%,${C.tag} 50%,${C.border} 75%);background-size:400px 100%}100%{background-position:400px 0}}
         .skeleton{background:linear-gradient(90deg,${C.border} 25%,${C.tag} 50%,${C.border} 75%);background-size:400px 100%;animation:shimmerMove 1.6s infinite linear}
         @keyframes shimmerMove{0%{background-position:-400px 0}100%{background-position:400px 0}}
+        @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
         .logo-icon{transition:transform 0.4s cubic-bezier(0.34,1.56,0.64,1)}
         .logo-icon:hover{transform:rotate(20deg) scale(1.15)}
         .nav-tab{transition:all 0.2s ease}
@@ -913,15 +1023,15 @@ export default function App() {
       `}</style>
 
       {toast&&<div className="toast-in" style={{position:"fixed",top:"20px",left:"50%",transform:"translateX(-50%)",zIndex:9999,background:toast.type==="error"?C.danger:C.success,color:"white",padding:"13px 26px",borderRadius:"16px",boxShadow:`0 10px 40px ${toast.type==="error"?"rgba(255,68,102,0.4)":"rgba(0,229,160,0.35)"}`,fontWeight:700,fontSize:"14px",whiteSpace:"nowrap",maxWidth:"90vw",display:"flex",alignItems:"center",gap:"8px"}}>{toast.msg}</div>}
-      {selected&&<DetailModal event={selected} onClose={()=>setSelected(null)} onDelete={deleteEvent} C={C} isMobile={isMobile}/>}
-      {showAccounts&&<AccountPanel msUser={msUser} googleUser={ggUser} onConnectMs={loginMs} onConnectGoogle={loginGoogle} onDisconnectMs={()=>{disconnectMs();if(!ggUser){setScreen("login");}}} onDisconnectGoogle={()=>{disconnectGoogle();if(!msUser){setScreen("login");}}} C={C} isMobile={isMobile} onClose={()=>setShowAccounts(false)}/>}
+      {selected&&<DetailModal event={selected} onClose={closeSelected} onDelete={deleteEvent} C={C} isMobile={isMobile}/>}
+      {(showAccounts||accountsClosing)&&<AccountPanel msUser={msUser} googleUser={ggUser} onConnectMs={loginMs} onConnectGoogle={loginGoogle} onDisconnectMs={()=>{disconnectMs();if(!ggUser){setScreen("login");}}} onDisconnectGoogle={()=>{disconnectGoogle();if(!msUser){setScreen("login");}}} C={C} isMobile={isMobile} onClose={closeAccounts}/>}
       {dayEvents&&(
-        <div onClick={()=>setDayEvents(null)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.6)",zIndex:300,display:"flex",alignItems:isMobile?"flex-end":"center",justifyContent:"center"}}>
-          <div onClick={e=>e.stopPropagation()} style={{background:C.surface,borderRadius:isMobile?"24px 24px 0 0":"24px",padding:"24px",width:"100%",maxWidth:isMobile?"100%":"460px",maxHeight:"70vh",overflowY:"auto"}}>
+        <div onClick={closeDayEvents} className={dayEventsClosing?"modal-backdrop-out":"modal-backdrop"} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.6)",zIndex:300,display:"flex",alignItems:isMobile?"flex-end":"center",justifyContent:"center"}}>
+          <div onClick={e=>e.stopPropagation()} className={dayEventsClosing?(isMobile?"modal-content-mobile-out":"modal-content-desktop-out"):(isMobile?"modal-content-mobile":"modal-content-desktop")} style={{background:C.surface,borderRadius:isMobile?"24px 24px 0 0":"24px",padding:"24px",width:"100%",maxWidth:isMobile?"100%":"460px",maxHeight:"70vh",overflowY:"auto"}}>
             {isMobile&&<div style={{width:"40px",height:"4px",background:C.border,borderRadius:"2px",margin:"0 auto 16px"}}/>}
             <h3 style={{margin:"0 0 16px",fontSize:"16px",fontWeight:700}}>{fmtShort(getStartDT(dayEvents[0]))} etkinlikleri</h3>
             {dayEvents.map((e,i)=>(
-              <div key={i} onClick={()=>{setDayEvents(null);setSelected(e);}} style={{padding:"12px 14px",background:C.card,borderRadius:"14px",marginBottom:"8px",borderLeft:`3px solid ${e._source==="google"?"#4285f4":"#0078d4"}`,cursor:"pointer"}}>
+              <div key={i} onClick={()=>{closeDayEvents();setTimeout(()=>setSelected(e),300);}} style={{padding:"12px 14px",background:C.card,borderRadius:"14px",marginBottom:"8px",borderLeft:`3px solid ${e._source==="google"?"#4285f4":"#0078d4"}`,cursor:"pointer"}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                   <div style={{fontWeight:700,fontSize:"14px"}}>{e.subject}</div>
                   <SourceBadge source={e._source} small/>
@@ -929,7 +1039,7 @@ export default function App() {
                 <div style={{color:C.muted,fontSize:"12px",marginTop:"4px"}}>🕐 {fmtTime(getStartDT(e))} – {fmtTime(getEndDT(e))}</div>
               </div>
             ))}
-            <button onClick={()=>setDayEvents(null)} style={{width:"100%",padding:"13px",borderRadius:"12px",background:C.tag,border:"none",color:C.muted,fontSize:"15px",fontWeight:600,cursor:"pointer",marginTop:"8px"}}>Kapat</button>
+            <button onClick={closeDayEvents} style={{width:"100%",padding:"13px",borderRadius:"12px",background:C.tag,border:"none",color:C.muted,fontSize:"15px",fontWeight:600,cursor:"pointer",marginTop:"8px"}}>Kapat</button>
           </div>
         </div>
       )}
@@ -957,9 +1067,9 @@ export default function App() {
         )}
         <div style={{display:"flex",gap:"8px",alignItems:"center"}}>
           {notifPerm!=="granted"&&<button onClick={async()=>{const p=await Notification.requestPermission();setNotifPerm(p);if(p==="granted")showToast("🔔 Bildirimler açıldı!");}} style={{background:"rgba(255,255,255,0.1)",border:"none",borderRadius:"10px",padding:"8px 10px",color:"white",fontSize:"14px",cursor:"pointer"}}>🔔</button>}
-          <button onClick={()=>setShowAccounts(true)} style={{background:"rgba(255,255,255,0.1)",border:"none",borderRadius:"10px",padding:"8px 12px",color:"white",fontSize:"13px",fontWeight:600,cursor:"pointer"}}>👤 Hesaplar</button>
+          <button onClick={()=>{ if(showAccounts) closeAccounts(); else setShowAccounts(true); }} style={{background:"rgba(255,255,255,0.1)",border:"none",borderRadius:"10px",padding:"8px 12px",color:"white",fontSize:"13px",fontWeight:600,cursor:"pointer"}}>👤 Hesaplar</button>
           <button onClick={toggleTheme} style={{background:"rgba(255,255,255,0.1)",border:"none",borderRadius:"10px",padding:"8px 10px",color:"white",fontSize:"15px",cursor:"pointer"}}>{themeKey==="dark"?"☀️":"🌙"}</button>
-          {!isMobile&&<RippleButton onClick={()=>setShowAddPanel(!showAddPanel)} style={{background:C.gradient,border:"none",borderRadius:"10px",padding:"8px 18px",color:"white",fontSize:"14px",fontWeight:700,boxShadow:`0 4px 14px ${C.teal}33`,transition:"transform 0.2s,box-shadow 0.2s"}}>➕ Yeni Ekle</RippleButton>}
+          {!isMobile&&<RippleButton onClick={()=>{ if(showAddPanel) closeAddPanel(); else setShowAddPanel(true); }} style={{background:C.gradient,border:"none",borderRadius:"10px",padding:"8px 18px",color:"white",fontSize:"14px",fontWeight:700,boxShadow:`0 4px 14px ${C.teal}33`,transition:"transform 0.2s,box-shadow 0.2s"}}>➕ Yeni Ekle</RippleButton>}
         </div>
       </header>
 
@@ -1039,13 +1149,13 @@ export default function App() {
               </div>
             )}
           </div>
-          {showAddPanel&&(
-            <div className="add-panel" style={{width:"400px",background:C.surface,borderLeft:"1px solid "+C.border,padding:"24px",overflowY:"auto",boxShadow:"-4px 0 30px rgba(0,0,0,0.15)"}}>
+          {(showAddPanel||addPanelClosing)&&(
+            <div className={addPanelClosing?"add-panel-out":"add-panel"} style={{width:"400px",background:C.surface,borderLeft:"1px solid "+C.border,padding:"24px",overflowY:"auto",boxShadow:"-4px 0 30px rgba(0,0,0,0.15)"}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"20px"}}>
                 <h3 style={{margin:0,fontSize:"18px",fontWeight:700}}>➕ Yeni Etkinlik</h3>
-                <button onClick={()=>setShowAddPanel(false)} style={{background:C.tag,border:"none",color:C.muted,fontSize:"16px",cursor:"pointer",padding:"6px 10px",borderRadius:"8px"}}>✕</button>
+                <button onClick={closeAddPanel} style={{background:C.tag,border:"none",color:C.muted,fontSize:"16px",cursor:"pointer",padding:"6px 10px",borderRadius:"8px",transition:"transform 0.2s"}} onMouseOver={e=>e.currentTarget.style.transform="rotate(90deg)"} onMouseOut={e=>e.currentTarget.style.transform="rotate(0deg)"}>✕</button>
               </div>
-              <AddForm form={form} setForm={setForm} onSave={saveEvent} onCancel={()=>setShowAddPanel(false)} saving={saving} C={C} msConnected={msConnected} googleConnected={ggConnected}/>
+              <AddForm form={form} setForm={setForm} onSave={saveEvent} onCancel={closeAddPanel} saving={saving} C={C} msConnected={msConnected} googleConnected={ggConnected}/>
             </div>
           )}
         </div>
