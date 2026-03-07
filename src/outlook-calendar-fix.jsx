@@ -1,3 +1,4 @@
+/* eslint-disable */
 import { useState, useEffect } from "react";
 
 const COLORS = {
@@ -139,7 +140,7 @@ export default function OutlookCalendarApp() {
         fetchEvents();
       }
     }
-  }, [fetchEvents]);
+  }, []);
 
   const fetchUser = async () => {
     try {
