@@ -332,14 +332,11 @@ function EventCard({ e, onClick, C, onRemove }) {
 }
 
 // ── DETAIL MODAL ──────────────────────────────────────────────────────────────
-function DetailModal({ event, onClose, onDelete, C, isMobile }) {
+function DetailModal({ event, onClose, onDelete, C, isMobile, isClosing }) {
   const cat=getCat(event);
   const startDT=getStartDT(event), endDT=getEndDT(event);
-  const [closing, setClosing] = useState(false);
-  const handleClose = useCallback(() => {
-    setClosing(true);
-    setTimeout(() => onClose(), 290);
-  }, [onClose]);
+  const closing = isClosing;
+  const handleClose = onClose;
   const wrap=isMobile?{position:"fixed",inset:0,background:"rgba(0,0,0,0.7)",zIndex:300,display:"flex",alignItems:"flex-end"}:{position:"fixed",inset:0,background:"rgba(0,0,0,0.6)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center"};
   const box=isMobile?{background:C.surface,borderRadius:"24px 24px 0 0",padding:"24px",width:"100%",maxHeight:"85vh",overflowY:"auto"}:{background:C.surface,borderRadius:"24px",padding:"32px",width:"100%",maxWidth:"520px",maxHeight:"85vh",overflowY:"auto",boxShadow:"0 30px 80px rgba(0,0,0,0.5)"};
   return (
@@ -506,12 +503,9 @@ function AddForm({ form, setForm, onSave, onCancel, saving, C, msConnected, goog
 }
 
 // ── ACCOUNT PANEL ─────────────────────────────────────────────────────────────
-function AccountPanel({ msUser, googleUser, onConnectMs, onConnectGoogle, onDisconnectMs, onDisconnectGoogle, C, isMobile, onClose }) {
-  const [closing, setClosing] = useState(false);
-  const handleClose = useCallback(() => {
-    setClosing(true);
-    setTimeout(() => onClose(), 290);
-  }, [onClose]);
+function AccountPanel({ msUser, googleUser, onConnectMs, onConnectGoogle, onDisconnectMs, onDisconnectGoogle, C, isMobile, onClose, isClosing }) {
+  const closing = isClosing;
+  const handleClose = onClose;
   const wrap = isMobile
     ? {position:"fixed",inset:0,background:"rgba(0,0,0,0.72)",zIndex:300,display:"flex",alignItems:"flex-end"}
     : {position:"fixed",inset:0,background:"rgba(0,0,0,0.6)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center"};
@@ -567,7 +561,7 @@ function AccountPanel({ msUser, googleUser, onConnectMs, onConnectGoogle, onDisc
 
   return (
     <div onClick={handleClose} className={closing?"modal-backdrop-out":"modal-backdrop"} style={wrap}>
-      <div onClick={e=>e.stopPropagation()} className={isMobile?"modal-content-mobile":"modal-content-desktop"} style={box}>
+      <div onClick={e=>e.stopPropagation()} className={closing?(isMobile?"modal-content-mobile-out":"modal-content-desktop-out"):(isMobile?"modal-content-mobile":"modal-content-desktop")} style={box}>
         {isMobile && <div style={{width:"44px",height:"5px",background:C.border,borderRadius:"3px",margin:"0 auto 24px"}}/>}
 
         {/* Header */}
@@ -579,7 +573,7 @@ function AccountPanel({ msUser, googleUser, onConnectMs, onConnectGoogle, onDisc
             </p>
           </div>
           {!isMobile && (
-            <button onClick={onClose} style={{background:C.tag,border:"none",color:C.muted,fontSize:"18px",cursor:"pointer",padding:"8px 12px",borderRadius:"12px",transition:"all 0.2s"}}>✕</button>
+            <button onClick={handleClose} style={{background:C.tag,border:"none",color:C.muted,fontSize:"18px",cursor:"pointer",padding:"8px 12px",borderRadius:"12px",transition:"all 0.2s" }}>✕</button>
           )}
         </div>
 
@@ -655,7 +649,7 @@ export default function App() {
   const [selectedClosing, setSelectedClosing] = useState(false);
   const closeSelected = useCallback(() => {
     setSelectedClosing(true);
-    setTimeout(() => { setSelectedClosing(false); setSelected(null); }, 290);
+    setTimeout(() => { setSelectedClosing(false); setSelected(null); }, 320);
   }, []);
   const [dayEvents,     setDayEvents]     = useState(null);
   const [dayEventsClosing, setDayEventsClosing] = useState(false);
@@ -675,7 +669,7 @@ export default function App() {
   const [accountsClosing, setAccountsClosing] = useState(false);
   const closeAccounts = useCallback(() => {
     setAccountsClosing(true);
-    setTimeout(() => { setAccountsClosing(false); setShowAccounts(false); }, 300);
+    setTimeout(() => { setAccountsClosing(false); setShowAccounts(false); }, 320);
   }, []);
   const [search,        setSearch]        = useState("");
   const [activeFilter,  setActiveFilter]  = useState("all");
@@ -1023,8 +1017,8 @@ export default function App() {
       `}</style>
 
       {toast&&<div className="toast-in" style={{position:"fixed",top:"20px",left:"50%",transform:"translateX(-50%)",zIndex:9999,background:toast.type==="error"?C.danger:C.success,color:"white",padding:"13px 26px",borderRadius:"16px",boxShadow:`0 10px 40px ${toast.type==="error"?"rgba(255,68,102,0.4)":"rgba(0,229,160,0.35)"}`,fontWeight:700,fontSize:"14px",whiteSpace:"nowrap",maxWidth:"90vw",display:"flex",alignItems:"center",gap:"8px"}}>{toast.msg}</div>}
-      {selected&&<DetailModal event={selected} onClose={closeSelected} onDelete={deleteEvent} C={C} isMobile={isMobile}/>}
-      {(showAccounts||accountsClosing)&&<AccountPanel msUser={msUser} googleUser={ggUser} onConnectMs={loginMs} onConnectGoogle={loginGoogle} onDisconnectMs={()=>{disconnectMs();if(!ggUser){setScreen("login");}}} onDisconnectGoogle={()=>{disconnectGoogle();if(!msUser){setScreen("login");}}} C={C} isMobile={isMobile} onClose={closeAccounts}/>}
+      {selected&&<DetailModal event={selected} onClose={closeSelected} onDelete={deleteEvent} C={C} isMobile={isMobile} isClosing={selectedClosing}/>}
+      {(showAccounts||accountsClosing)&&<AccountPanel msUser={msUser} googleUser={ggUser} onConnectMs={loginMs} onConnectGoogle={loginGoogle} onDisconnectMs={()=>{disconnectMs();if(!ggUser){setScreen("login");}}} onDisconnectGoogle={()=>{disconnectGoogle();if(!msUser){setScreen("login");}}} C={C} isMobile={isMobile} onClose={closeAccounts} isClosing={accountsClosing}/>}
       {dayEvents&&(
         <div onClick={closeDayEvents} className={dayEventsClosing?"modal-backdrop-out":"modal-backdrop"} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.6)",zIndex:300,display:"flex",alignItems:isMobile?"flex-end":"center",justifyContent:"center"}}>
           <div onClick={e=>e.stopPropagation()} className={dayEventsClosing?(isMobile?"modal-content-mobile-out":"modal-content-desktop-out"):(isMobile?"modal-content-mobile":"modal-content-desktop")} style={{background:C.surface,borderRadius:isMobile?"24px 24px 0 0":"24px",padding:"24px",width:"100%",maxWidth:isMobile?"100%":"460px",maxHeight:"70vh",overflowY:"auto"}}>
