@@ -238,8 +238,9 @@ export default function OutlookCalendarApp() {
       });
       if (res.ok) {
         showNotification("✅ Outlook'a kaydedildi!");
-        await fetchEventsWithToken(token);
         setView("list"); resetForm();
+        await new Promise(r => setTimeout(r, 2000));
+        await fetchEventsWithToken(token);
       } else {
         const err = await res.json();
         showNotification("Hata: " + (err.error?.message || "Eklenemedi"), "error");
