@@ -288,10 +288,11 @@ export default function App() {
     location:"", body:"", reminder:15, category:"Toplantı",
   });
 
-  const upcoming = events.filter(e => new Date(e.start.dateTime) > Date.now() - 3600000);
+  const toUTC = (dt) => dt.endsWith("Z") ? dt : dt + "Z";
+  const upcoming = events.filter(e => new Date(toUTC(e.start.dateTime)) > Date.now() - 3600000);
   const getCatColor = (e) => categoryColors[e.categories?.[0]] || categoryColors["Diğer"];
   const timeUntil = (d) => {
-    const diff = new Date(d) - Date.now();
+    const diff = new Date(toUTC(d)) - Date.now();
     if (diff < 0) return "Geçti";
     const h = Math.floor(diff/3600000), m = Math.floor((diff%3600000)/60000);
     if (h > 24) return `${Math.floor(h/24)} gün sonra`;
