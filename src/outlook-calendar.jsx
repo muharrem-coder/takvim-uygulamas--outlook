@@ -1,6 +1,77 @@
 /* eslint-disable */
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 
+// ── ANIMATION HELPERS ─────────────────────────────────────────────────────────
+function useRipple() {
+  const [ripples, setRipples] = useState([]);
+  const addRipple = useCallback((e) => {
+    const btn = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - btn.left, y = e.clientY - btn.top;
+    const id = Date.now();
+    setRipples(r => [...r, { x, y, id }]);
+    setTimeout(() => setRipples(r => r.filter(rp => rp.id !== id)), 600);
+  }, []);
+  return [ripples, addRipple];
+}
+
+function RippleButton({ onClick, style, children, disabled, className, ...props }) {
+  const [ripples, addRipple] = useRipple();
+  return (
+    <button
+      {...props}
+      className={className}
+      disabled={disabled}
+      onClick={e => { if (!disabled) { addRipple(e); onClick && onClick(e); } }}
+      style={{ ...style, position: "relative", overflow: "hidden", cursor: disabled ? "not-allowed" : "pointer" }}
+    >
+      {ripples.map(r => (
+        <span key={r.id} style={{
+          position: "absolute", left: r.x - 60, top: r.y - 60,
+          width: 120, height: 120, borderRadius: "50%",
+          background: "rgba(255,255,255,0.25)", pointerEvents: "none",
+          animation: "rippleAnim 0.6s ease-out forwards",
+        }} />
+      ))}
+      {children}
+    </button>
+  );
+}
+
+function AnimatedCard({ children, index = 0 }) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setMounted(true), index * 70);
+    return () => clearTimeout(t);
+  }, [index]);
+  return (
+    <div style={{
+      transition: "opacity 0.45s ease, transform 0.45s ease",
+      opacity: mounted ? 1 : 0,
+      transform: mounted ? "translateY(0) scale(1)" : "translateY(24px) scale(0.97)",
+    }}>
+      {children}
+    </div>
+  );
+}
+
+function SkeletonCard({ C }) {
+  return (
+    <div style={{ background: C.card, borderRadius: "16px", padding: "16px 18px", border: "1px solid " + C.border, display: "flex", gap: "12px" }}>
+      <div style={{ width: 48, height: 60, borderRadius: 12, background: C.border, animation: "shimmer 1.6s infinite" }} />
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 8 }}>
+        <div style={{ height: 15, borderRadius: 8, background: C.border, width: "65%", animation: "shimmer 1.6s infinite" }} />
+        <div style={{ height: 12, borderRadius: 8, background: C.border, width: "48%", animation: "shimmer 1.6s infinite 0.2s" }} />
+        <div style={{ height: 11, borderRadius: 8, background: C.border, width: "32%", animation: "shimmer 1.6s infinite 0.35s" }} />
+      </div>
+      <div style={{ width: 56, display:"flex", flexDirection:"column", gap:6, alignItems:"flex-end" }}>
+        <div style={{ height: 20, width: 56, borderRadius: 20, background: C.border, animation: "shimmer 1.6s infinite 0.1s" }} />
+        <div style={{ height: 14, width: 40, borderRadius: 8, background: C.border, animation: "shimmer 1.6s infinite 0.3s" }} />
+      </div>
+    </div>
+  );
+}
+
+
 // ── CONFIG ────────────────────────────────────────────────────────────────────
 const MS_CLIENT_ID    = "774d7d5a-1c96-42e8-8ce0-41fa960bab14";
 const GOOGLE_CLIENT_ID = "923407886232-76tom5gvm5b7cnrdeonknc5mjb63vv7i.apps.googleusercontent.com";
@@ -206,11 +277,17 @@ function StatsBar({ events, msConnected, googleConnected, C }) {
 }
 
 // ── EVENT CARD ────────────────────────────────────────────────────────────────
-function EventCard({ e, onClick, C }) {
+function EventCard({ e, onClick, C, onRemove }) {
   const cat=getCat(e), past=isPast(getEndDT(e)), urgent=isUrgent(getStartDT(e));
   const startDT=getStartDT(e);
+  const [removing, setRemoving] = useState(false);
+  const handleDelete = (ev) => {
+    ev.stopPropagation();
+    setRemoving(true);
+    setTimeout(() => onRemove && onRemove(e), 430);
+  };
   return (
-    <div onClick={onClick} className="ec" style={{background:C.card,borderRadius:"16px",padding:"14px 16px",border:`1px solid ${urgent?"rgba(255,68,102,0.4)":C.border}`,cursor:"pointer",transition:"all 0.18s",opacity:past?0.5:1,display:"flex",gap:"12px",alignItems:"flex-start"}}>
+    <div className={"ec" + (removing ? " ec-removing" : "")} onClick={removing ? undefined : onClick} style={{background:C.card,borderRadius:"16px",padding:"14px 16px",border:`1px solid ${urgent?"rgba(255,68,102,0.4)":C.border}`,cursor:removing?"default":"pointer",opacity:past?0.5:1,display:"flex",gap:"12px",alignItems:"flex-start"}}>
       <div style={{minWidth:"48px",textAlign:"center",background:cat.bg,borderRadius:"12px",padding:"7px 4px",flexShrink:0}}>
         <div style={{fontSize:"9px",color:cat.text,fontWeight:700,textTransform:"uppercase",letterSpacing:0.5}}>{safeParse(startDT).toLocaleDateString("tr-TR",{month:"short"})}</div>
         <div style={{fontSize:"21px",fontWeight:800,color:cat.text,lineHeight:1.1}}>{safeParse(startDT).getDate()}</div>
@@ -238,8 +315,8 @@ function DetailModal({ event, onClose, onDelete, C, isMobile }) {
   const wrap=isMobile?{position:"fixed",inset:0,background:"rgba(0,0,0,0.7)",zIndex:300,display:"flex",alignItems:"flex-end"}:{position:"fixed",inset:0,background:"rgba(0,0,0,0.6)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center"};
   const box=isMobile?{background:C.surface,borderRadius:"24px 24px 0 0",padding:"24px",width:"100%",maxHeight:"85vh",overflowY:"auto"}:{background:C.surface,borderRadius:"24px",padding:"32px",width:"100%",maxWidth:"520px",maxHeight:"85vh",overflowY:"auto",boxShadow:"0 30px 80px rgba(0,0,0,0.5)"};
   return (
-    <div onClick={onClose} style={wrap}>
-      <div onClick={e=>e.stopPropagation()} style={box}>
+    <div onClick={onClose} className="modal-backdrop" style={wrap}>
+      <div onClick={e=>e.stopPropagation()} className={isMobile?"modal-content-mobile":"modal-content-desktop"} style={box}>
         {isMobile&&<div style={{width:"40px",height:"4px",background:C.border,borderRadius:"2px",margin:"0 auto 20px"}}/>}
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"16px"}}>
           <div style={{flex:1}}>
@@ -392,9 +469,9 @@ function AddForm({ form, setForm, onSave, onCancel, saving, C, msConnected, goog
       </div>
       <div style={{display:"flex",gap:"12px"}}>
         {onCancel&&<button onClick={onCancel} style={{flex:1,padding:"14px",borderRadius:"14px",background:"transparent",border:"1px solid "+C.border,color:C.muted,fontSize:"15px",fontWeight:600,cursor:"pointer"}}>İptal</button>}
-        <button onClick={onSave} disabled={saving} style={{flex:2,padding:"14px",borderRadius:"14px",background:C.gradient,border:"none",color:"white",fontSize:"16px",fontWeight:700,cursor:"pointer",boxShadow:`0 4px 20px ${C.teal}33`}}>
+        <RippleButton onClick={onSave} disabled={saving} style={{flex:2,padding:"14px",borderRadius:"14px",background:saving?"#333":C.gradient,border:"none",color:"white",fontSize:"16px",fontWeight:700,boxShadow:saving?"none":`0 4px 20px ${C.teal}33`,transition:"all 0.2s"}}>
           {saving?"⏳ Kaydediliyor...":"✅ Kaydet"}
-        </button>
+        </RippleButton>
       </div>
     </div>
   );
@@ -483,6 +560,18 @@ export default function App() {
   // UI
   const [screen,        setScreen]        = useState("login");
   const [tab,           setTab]           = useState("list");
+  const [prevTab,       setPrevTab]       = useState("list");
+  const tabOrder = ["list","calendar","add"];
+  const changeTab = useCallback((newTab) => {
+    setPrevTab(t => t);
+    setTab(prev => { setPrevTab(prev); return newTab; });
+  }, []);
+  const getPageClass = (currentTab) => {
+    const tabOrder = ["list","calendar","add"];
+    const curr = tabOrder.indexOf(currentTab), prev = tabOrder.indexOf(prevTab);
+    if (curr === prev) return "pg-up";
+    return curr > prev ? "pg-right" : "pg-left";
+  };
   const [selected,      setSelected]      = useState(null);
   const [dayEvents,     setDayEvents]     = useState(null);
   const [toast,         setToast]         = useState(null);
@@ -758,18 +847,18 @@ export default function App() {
           <div style={{background:C.surface,borderRadius:"24px",padding:"32px",boxShadow:"0 25px 80px rgba(0,0,0,0.4)",border:"1px solid "+C.border}}>
             <div style={{fontSize:"13px",fontWeight:600,color:C.muted,marginBottom:"16px",textAlign:"center",textTransform:"uppercase",letterSpacing:0.5}}>Hesabınızla giriş yapın</div>
             <div style={{display:"flex",flexDirection:"column",gap:"12px"}}>
-              <button className="lbtn" onClick={loginMs} style={{padding:"15px",borderRadius:"14px",background:"linear-gradient(135deg,#0078d4,#106ebe)",border:"none",color:"white",fontSize:"15px",fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",gap:"10px",boxShadow:"0 4px 20px rgba(0,120,212,0.35)"}}>
+              <RippleButton className="lbtn" onClick={loginMs} style={{padding:"15px",borderRadius:"14px",background:"linear-gradient(135deg,#0078d4,#106ebe)",border:"none",color:"white",fontSize:"15px",fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",gap:"10px",boxShadow:"0 4px 20px rgba(0,120,212,0.35)"}}>
                 <span style={{fontSize:"20px"}}>📘</span> Microsoft Outlook ile Giriş
-              </button>
-              <button className="lbtn" onClick={loginGoogle} style={{padding:"15px",borderRadius:"14px",background:"linear-gradient(135deg,#4285f4,#34a853)",border:"none",color:"white",fontSize:"15px",fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",gap:"10px",boxShadow:"0 4px 20px rgba(66,133,244,0.35)"}}>
+              </RippleButton>
+              <RippleButton className="lbtn" onClick={loginGoogle} style={{padding:"15px",borderRadius:"14px",background:"linear-gradient(135deg,#4285f4,#34a853)",border:"none",color:"white",fontSize:"15px",fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",gap:"10px",boxShadow:"0 4px 20px rgba(66,133,244,0.35)"}}>
                 <span style={{fontSize:"20px"}}>📗</span> Google Calendar ile Giriş
-              </button>
+              </RippleButton>
               <div style={{display:"flex",alignItems:"center",gap:"10px",margin:"4px 0"}}>
                 <div style={{flex:1,height:"1px",background:C.border}}/><span style={{color:C.muted,fontSize:"12px"}}>veya</span><div style={{flex:1,height:"1px",background:C.border}}/>
               </div>
-              <button className="lbtn" onClick={loginDemo} style={{padding:"15px",borderRadius:"14px",background:"linear-gradient(135deg,#7c3aed,#5b21b6)",border:"none",color:"white",fontSize:"15px",fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",gap:"10px",boxShadow:"0 4px 20px rgba(124,58,237,0.35)"}}>
+              <RippleButton className="lbtn" onClick={loginDemo} style={{padding:"15px",borderRadius:"14px",background:"linear-gradient(135deg,#7c3aed,#5b21b6)",border:"none",color:"white",fontSize:"15px",fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",gap:"10px",boxShadow:"0 4px 20px rgba(124,58,237,0.35)"}}>
                 <span style={{fontSize:"20px"}}>🎮</span> Demo Olarak Dene
-              </button>
+              </RippleButton>
             </div>
             <p style={{color:C.muted,fontSize:"12px",textAlign:"center",marginTop:"16px",lineHeight:1.6}}>
               Her iki hesabı da bağlayabilirsiniz — giriş sonrası hesap ayarlarından ekleyebilirsiniz.
@@ -787,16 +876,43 @@ export default function App() {
         *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
         input,textarea{outline:none;-webkit-appearance:none}
         input:focus,textarea:focus{border-color:${C.teal}!important;box-shadow:0 0 0 3px ${C.teal}18!important}
-        .ec:hover{transform:translateY(-1px);box-shadow:0 4px 20px rgba(0,0,0,0.2)!important}
-        @keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
-        @keyframes slideDown{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
-        .pg{animation:fadeUp 0.22s ease}
-        .toast{animation:slideDown 0.3s ease}
+        .ec{transition:transform 0.2s ease,box-shadow 0.2s ease}
+        .ec:hover{transform:translateY(-3px) scale(1.01);box-shadow:0 8px 32px rgba(0,0,0,0.28)!important}
+        .ec:active{transform:scale(0.98)!important}
+        .ec-removing{animation:cardRemove 0.45s cubic-bezier(0.4,0,0.2,1) forwards;overflow:hidden}
+        @keyframes cardRemove{0%{opacity:1;transform:translateX(0) scale(1);max-height:200px;margin-bottom:10px}40%{opacity:0.3;transform:translateX(60px) scale(0.94)}100%{opacity:0;transform:translateX(120px) scale(0.85);max-height:0;margin-bottom:0;padding-top:0;padding-bottom:0}}
+        @keyframes slideInRight{from{opacity:0;transform:translateX(32px)}to{opacity:1;transform:translateX(0)}}
+        @keyframes slideInLeft{from{opacity:0;transform:translateX(-32px)}to{opacity:1;transform:translateX(0)}}
+        @keyframes slideInUp{from{opacity:0;transform:translateY(28px)}to{opacity:1;transform:translateY(0)}}
+        .pg-right{animation:slideInRight 0.32s cubic-bezier(0.25,0.46,0.45,0.94)}
+        .pg-left{animation:slideInLeft 0.32s cubic-bezier(0.25,0.46,0.45,0.94)}
+        .pg-up{animation:slideInUp 0.28s cubic-bezier(0.25,0.46,0.45,0.94)}
+        @keyframes modalBackdrop{from{opacity:0}to{opacity:1}}
+        @keyframes modalPopIn{from{opacity:0;transform:scale(0.88) translateY(20px)}to{opacity:1;transform:scale(1) translateY(0)}}
+        @keyframes sheetSlideUp{from{opacity:0;transform:translateY(100%)}to{opacity:1;transform:translateY(0)}}
+        .modal-backdrop{animation:modalBackdrop 0.25s ease}
+        .modal-content-desktop{animation:modalPopIn 0.35s cubic-bezier(0.34,1.56,0.64,1)}
+        .modal-content-mobile{animation:sheetSlideUp 0.4s cubic-bezier(0.25,0.46,0.45,0.94)}
+        @keyframes panelSlideIn{from{opacity:0;transform:translateX(100%)}to{opacity:1;transform:translateX(0)}}
+        .add-panel{animation:panelSlideIn 0.38s cubic-bezier(0.25,0.46,0.45,0.94)}
+        @keyframes rippleAnim{from{transform:scale(0);opacity:1}to{transform:scale(4);opacity:0}}
+        @keyframes toastIn{from{opacity:0;transform:translateX(-50%) translateY(-16px) scale(0.9)}to{opacity:1;transform:translateX(-50%) translateY(0) scale(1)}}
+        .toast-in{animation:toastIn 0.35s cubic-bezier(0.34,1.56,0.64,1)}
+        @keyframes shimmer{0%{background:linear-gradient(90deg,${C.border} 25%,${C.tag} 50%,${C.border} 75%);background-size:400px 100%}100%{background-position:400px 0}}
+        .skeleton{background:linear-gradient(90deg,${C.border} 25%,${C.tag} 50%,${C.border} 75%);background-size:400px 100%;animation:shimmerMove 1.6s infinite linear}
+        @keyframes shimmerMove{0%{background-position:-400px 0}100%{background-position:400px 0}}
+        .logo-icon{transition:transform 0.4s cubic-bezier(0.34,1.56,0.64,1)}
+        .logo-icon:hover{transform:rotate(20deg) scale(1.15)}
+        .nav-tab{transition:all 0.2s ease}
+        .nav-tab:hover{background:rgba(255,255,255,0.12)!important}
+        @keyframes fabBounce{0%,100%{transform:scale(1)}50%{transform:scale(1.07)}}
+        .fab{animation:fabBounce 2.5s ease-in-out infinite}
+        .fab:hover{animation:none;transform:scale(1.1) rotate(90deg)!important;transition:transform 0.3s cubic-bezier(0.34,1.56,0.64,1)!important}
         ::-webkit-scrollbar{width:5px}
         ::-webkit-scrollbar-thumb{background:${C.border};border-radius:3px}
       `}</style>
 
-      {toast&&<div className="toast" style={{position:"fixed",top:"20px",left:"50%",transform:"translateX(-50%)",zIndex:9999,background:toast.type==="error"?C.danger:C.success,color:"white",padding:"12px 24px",borderRadius:"14px",boxShadow:"0 8px 30px rgba(0,0,0,0.3)",fontWeight:600,fontSize:"14px",whiteSpace:"nowrap",maxWidth:"90vw"}}>{toast.msg}</div>}
+      {toast&&<div className="toast-in" style={{position:"fixed",top:"20px",left:"50%",transform:"translateX(-50%)",zIndex:9999,background:toast.type==="error"?C.danger:C.success,color:"white",padding:"13px 26px",borderRadius:"16px",boxShadow:`0 10px 40px ${toast.type==="error"?"rgba(255,68,102,0.4)":"rgba(0,229,160,0.35)"}`,fontWeight:700,fontSize:"14px",whiteSpace:"nowrap",maxWidth:"90vw",display:"flex",alignItems:"center",gap:"8px"}}>{toast.msg}</div>}
       {selected&&<DetailModal event={selected} onClose={()=>setSelected(null)} onDelete={deleteEvent} C={C} isMobile={isMobile}/>}
       {showAccounts&&<AccountPanel msUser={msUser} googleUser={ggUser} onConnectMs={loginMs} onConnectGoogle={loginGoogle} onDisconnectMs={()=>{disconnectMs();if(!ggUser){setScreen("login");}}} onDisconnectGoogle={()=>{disconnectGoogle();if(!msUser){setScreen("login");}}} C={C} isMobile={isMobile} onClose={()=>setShowAccounts(false)}/>}
       {dayEvents&&(
@@ -821,7 +937,7 @@ export default function App() {
       {/* HEADER */}
       <header style={{background:C.header,padding:"0 20px",height:"60px",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:100,boxShadow:"0 2px 30px rgba(0,0,0,0.3)",borderBottom:"1px solid rgba(255,255,255,0.06)"}}>
         <div style={{display:"flex",alignItems:"center",gap:"12px"}}>
-          <div style={{width:"34px",height:"34px",borderRadius:"10px",background:C.gradient,display:"flex",alignItems:"center",justifyContent:"center",fontSize:"18px"}}>📅</div>
+          <div className="logo-icon" style={{width:"34px",height:"34px",borderRadius:"10px",background:C.gradient,display:"flex",alignItems:"center",justifyContent:"center",fontSize:"18px",cursor:"default"}}>📅</div>
           <div>
             <div style={{fontWeight:700,fontSize:"15px",color:"white"}}>{demoMode?"Demo — ":""}Evrensel Takvim</div>
             <div style={{display:"flex",gap:"6px",alignItems:"center"}}>
@@ -833,7 +949,7 @@ export default function App() {
         {!isMobile&&(
           <nav style={{display:"flex",gap:"4px",background:"rgba(255,255,255,0.06)",borderRadius:"12px",padding:"4px"}}>
             {[{id:"list",icon:"📋",label:"Etkinlikler"},{id:"calendar",icon:"🗓️",label:"Takvim"}].map(t=>(
-              <button key={t.id} onClick={()=>setTab(t.id)} style={{padding:"8px 16px",borderRadius:"9px",border:"none",background:tab===t.id?"rgba(255,255,255,0.15)":"transparent",color:"white",fontWeight:600,fontSize:"14px",cursor:"pointer",transition:"all 0.2s"}}>
+              <button key={t.id} onClick={()=>changeTab(t.id)} className="nav-tab" style={{padding:"8px 16px",borderRadius:"9px",border:"none",background:tab===t.id?"rgba(255,255,255,0.15)":"transparent",color:"white",fontWeight:600,fontSize:"14px",cursor:"pointer"}}>
                 {t.icon} {t.label}
               </button>
             ))}
@@ -843,7 +959,7 @@ export default function App() {
           {notifPerm!=="granted"&&<button onClick={async()=>{const p=await Notification.requestPermission();setNotifPerm(p);if(p==="granted")showToast("🔔 Bildirimler açıldı!");}} style={{background:"rgba(255,255,255,0.1)",border:"none",borderRadius:"10px",padding:"8px 10px",color:"white",fontSize:"14px",cursor:"pointer"}}>🔔</button>}
           <button onClick={()=>setShowAccounts(true)} style={{background:"rgba(255,255,255,0.1)",border:"none",borderRadius:"10px",padding:"8px 12px",color:"white",fontSize:"13px",fontWeight:600,cursor:"pointer"}}>👤 Hesaplar</button>
           <button onClick={toggleTheme} style={{background:"rgba(255,255,255,0.1)",border:"none",borderRadius:"10px",padding:"8px 10px",color:"white",fontSize:"15px",cursor:"pointer"}}>{themeKey==="dark"?"☀️":"🌙"}</button>
-          {!isMobile&&<button onClick={()=>setShowAddPanel(!showAddPanel)} style={{background:C.gradient,border:"none",borderRadius:"10px",padding:"8px 18px",color:"white",fontSize:"14px",fontWeight:700,cursor:"pointer",boxShadow:`0 4px 14px ${C.teal}33`}}>➕ Yeni Ekle</button>}
+          {!isMobile&&<RippleButton onClick={()=>setShowAddPanel(!showAddPanel)} style={{background:C.gradient,border:"none",borderRadius:"10px",padding:"8px 18px",color:"white",fontSize:"14px",fontWeight:700,boxShadow:`0 4px 14px ${C.teal}33`,transition:"transform 0.2s,box-shadow 0.2s"}}>➕ Yeni Ekle</RippleButton>}
         </div>
       </header>
 
@@ -852,7 +968,7 @@ export default function App() {
         <div style={{display:"flex",minHeight:"calc(100vh - 60px)"}}>
           <div style={{flex:1,padding:"24px",overflowY:"auto"}}>
             {tab==="list"&&(
-              <div className="pg">
+              <div className={getPageClass("list")}>
                 <StatsBar events={allEvents} msConnected={msConnected} googleConnected={ggConnected} C={C}/>
                 {/* Filter row */}
                 <div style={{display:"flex",gap:"10px",marginBottom:"14px",flexWrap:"wrap",alignItems:"center"}}>
@@ -872,7 +988,11 @@ export default function App() {
                     {loading?"⟳":"🔄"} Yenile
                   </button>
                 </div>
-                {loading&&<div style={{textAlign:"center",padding:"60px",color:C.muted}}><div style={{fontSize:"40px",marginBottom:"8px"}}>⟳</div>Yükleniyor...</div>}
+                {loading&&(
+                  <div style={{display:"flex",flexDirection:"column",gap:"10px"}}>
+                    {[...Array(4)].map((_,i)=><SkeletonCard key={i} C={C}/>)}
+                  </div>
+                )}
                 {!loading&&filteredEvents.length===0&&(
                   <div style={{textAlign:"center",padding:"70px",background:C.card,borderRadius:"20px",border:"1px solid "+C.border}}>
                     <div style={{fontSize:"52px",marginBottom:"12px"}}>{search?"🔍":"🗓️"}</div>
@@ -881,12 +1001,16 @@ export default function App() {
                   </div>
                 )}
                 <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(480px,1fr))",gap:"10px"}}>
-                  {filteredEvents.map(e=><EventCard key={e._id} e={e} onClick={()=>setSelected(e)} C={C}/>)}
+                  {filteredEvents.map((e,i)=>(
+                    <AnimatedCard key={e._id} index={i}>
+                      <EventCard e={e} onClick={()=>setSelected(e)} C={C}/>
+                    </AnimatedCard>
+                  ))}
                 </div>
               </div>
             )}
             {tab==="calendar"&&(
-              <div className="pg">
+              <div className={getPageClass("calendar")}>
                 <h2 style={{margin:"0 0 20px",fontSize:"22px",fontWeight:700}}>Takvim</h2>
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"24px"}}>
                   <CalendarGrid events={allEvents} onDayClick={setDayEvents} C={C}/>
@@ -916,7 +1040,7 @@ export default function App() {
             )}
           </div>
           {showAddPanel&&(
-            <div style={{width:"400px",background:C.surface,borderLeft:"1px solid "+C.border,padding:"24px",overflowY:"auto",boxShadow:"-4px 0 30px rgba(0,0,0,0.15)"}}>
+            <div className="add-panel" style={{width:"400px",background:C.surface,borderLeft:"1px solid "+C.border,padding:"24px",overflowY:"auto",boxShadow:"-4px 0 30px rgba(0,0,0,0.15)"}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"20px"}}>
                 <h3 style={{margin:0,fontSize:"18px",fontWeight:700}}>➕ Yeni Etkinlik</h3>
                 <button onClick={()=>setShowAddPanel(false)} style={{background:C.tag,border:"none",color:C.muted,fontSize:"16px",cursor:"pointer",padding:"6px 10px",borderRadius:"8px"}}>✕</button>
@@ -930,7 +1054,7 @@ export default function App() {
         <div style={{paddingBottom:"70px"}}>
           <div style={{padding:"14px"}}>
             {tab==="list"&&(
-              <div className="pg">
+              <div className={getPageClass("list")}>
                 <StatsBar events={allEvents} msConnected={msConnected} googleConnected={ggConnected} C={C}/>
                 <div style={{position:"relative",marginBottom:"10px"}}>
                   <span style={{position:"absolute",left:"14px",top:"50%",transform:"translateY(-50%)",fontSize:"15px",pointerEvents:"none"}}>🔍</span>
@@ -944,21 +1068,29 @@ export default function App() {
                     </button>
                   ))}
                 </div>
-                {loading&&<div style={{textAlign:"center",padding:"40px",color:C.muted}}>⟳ Yükleniyor...</div>}
+                {loading&&(
+                  <div style={{display:"flex",flexDirection:"column",gap:"10px"}}>
+                    {[...Array(3)].map((_,i)=><SkeletonCard key={i} C={C}/>)}
+                  </div>
+                )}
                 <div style={{display:"flex",flexDirection:"column",gap:"10px"}}>
-                  {filteredEvents.map(e=><EventCard key={e._id} e={e} onClick={()=>setSelected(e)} C={C}/>)}
+                  {filteredEvents.map((e,i)=>(
+                    <AnimatedCard key={e._id} index={i}>
+                      <EventCard e={e} onClick={()=>setSelected(e)} C={C}/>
+                    </AnimatedCard>
+                  ))}
                 </div>
                 {!loading&&filteredEvents.length===0&&(
                   <div style={{textAlign:"center",padding:"50px",background:C.card,borderRadius:"16px",border:"1px solid "+C.border}}>
                     <div style={{fontSize:"44px",marginBottom:"12px"}}>{search?"🔍":"🗓️"}</div>
                     <div style={{color:C.muted,marginBottom:"14px"}}>{search?`"${search}" bulunamadı`:"Etkinlik yok"}</div>
-                    {!search&&<button onClick={()=>setTab("add")} style={{padding:"10px 24px",borderRadius:"12px",background:C.gradient,border:"none",color:"white",fontWeight:700,cursor:"pointer",fontSize:"14px"}}>+ Ekle</button>}
+                    {!search&&<button onClick={()=>changeTab("add")} style={{padding:"10px 24px",borderRadius:"12px",background:C.gradient,border:"none",color:"white",fontWeight:700,cursor:"pointer",fontSize:"14px"}}>+ Ekle</button>}
                   </div>
                 )}
               </div>
             )}
             {tab==="calendar"&&(
-              <div className="pg">
+              <div className={getPageClass("calendar")}>
                 <div style={{fontWeight:700,fontSize:"18px",marginBottom:"16px"}}>Takvim</div>
                 <CalendarGrid events={allEvents} onDayClick={setDayEvents} C={C}/>
                 <div style={{marginTop:"18px"}}>
@@ -983,7 +1115,7 @@ export default function App() {
               </div>
             )}
             {tab==="add"&&(
-              <div className="pg">
+              <div className={getPageClass("add")}>
                 <div style={{fontWeight:700,fontSize:"18px",marginBottom:"16px"}}>➕ Yeni Etkinlik</div>
                 <AddForm form={form} setForm={setForm} onSave={saveEvent} saving={saving} C={C} msConnected={msConnected} googleConnected={ggConnected}/>
               </div>
@@ -991,8 +1123,8 @@ export default function App() {
           </div>
           <div style={{position:"fixed",bottom:0,left:0,right:0,background:C.navBg,borderTop:"1px solid "+C.border,display:"flex",paddingBottom:"env(safe-area-inset-bottom)",zIndex:100,boxShadow:"0 -4px 20px rgba(0,0,0,0.2)"}}>
             {[{id:"list",icon:"📋",label:"Etkinlikler"},{id:"calendar",icon:"🗓️",label:"Takvim"},{id:"add",icon:"➕",label:"Ekle"}].map(t=>(
-              <button key={t.id} onClick={()=>setTab(t.id)} style={{flex:1,padding:"10px 8px",border:"none",background:"transparent",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:"3px",position:"relative"}}>
-                <span style={{fontSize:t.id==="add"?"24px":"20px",filter:tab===t.id?"none":"grayscale(0.5) opacity(0.45)",transition:"all 0.2s"}}>{t.icon}</span>
+              <button key={t.id} onClick={()=>changeTab(t.id)} style={{flex:1,padding:"10px 8px",border:"none",background:"transparent",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:"3px",position:"relative"}}>
+                <span className={t.id==="add"&&tab!=="add"?"fab":""} style={{fontSize:t.id==="add"?"24px":"20px",filter:tab===t.id?"none":"grayscale(0.5) opacity(0.45)",transition:"all 0.2s",display:"inline-block"}}>{t.icon}</span>
                 <span style={{fontSize:"11px",fontWeight:700,color:tab===t.id?C.teal:C.muted}}>{t.label}</span>
                 {tab===t.id&&<div style={{position:"absolute",top:0,left:"20%",right:"20%",height:"2px",background:C.gradient,borderRadius:"0 0 4px 4px"}}/>}
               </button>
