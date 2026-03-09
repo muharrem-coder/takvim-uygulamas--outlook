@@ -37,6 +37,332 @@ function RippleButton({ onClick, style, children, disabled, className, ...props 
   );
 }
 
+
+// ── DOT MATRIX CANVAS ANIMATION ──────────────────────────────────────────────
+function DotMatrix({ reverse = false, colors = [[0,212,255],[124,58,237]] }) {
+  const canvasRef = useRef(null);
+  const animRef   = useRef(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    const DOT = 3, GAP = 18, TOTAL = DOT + GAP;
+    let w, h, cells = [];
+    const startTime = performance.now();
+
+    const resize = () => {
+      w = canvas.width  = canvas.offsetWidth;
+      h = canvas.height = canvas.offsetHeight;
+      const cols = Math.ceil(w / TOTAL) + 1;
+      const rows = Math.ceil(h / TOTAL) + 1;
+      const cx = w / 2 / TOTAL, cy = h / 2 / TOTAL;
+      cells = [];
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          const dist = Math.hypot(c - cx, r - cy);
+          const rand  = Math.random() * 0.15;
+          cells.push({
+            x: c * TOTAL, y: r * TOTAL, dist,
+            delay: reverse
+              ? (Math.max(cx, cy) * 1.4 - dist) * 0.018 + rand
+              : dist * 0.012 + rand,
+            colorIdx: Math.floor(Math.random() * colors.length),
+            opacity: 0.3 + Math.random() * 0.7,
+          });
+        }
+      }
+    };
+
+    resize();
+    const ro = new ResizeObserver(resize);
+    ro.observe(canvas);
+
+    const draw = (now) => {
+      const t = (now - startTime) / 1000;
+      ctx.clearRect(0, 0, w, h);
+      for (const cell of cells) {
+        let progress = t * 0.55 - cell.delay;
+        let alpha;
+        if (reverse) {
+          alpha = Math.max(0, 1 - Math.max(0, progress) * 1.8) * cell.opacity;
+        } else {
+          alpha = Math.min(1, Math.max(0, progress) * 2) * cell.opacity;
+          if (progress > 0.5) alpha *= 0.75 + 0.25 * Math.sin(t * 2 + cell.dist);
+        }
+        if (alpha < 0.01) continue;
+        const [r, g, b] = colors[cell.colorIdx];
+        ctx.fillStyle = `rgba(${r},${g},${b},${alpha})`;
+        ctx.beginPath();
+        ctx.arc(cell.x + DOT/2, cell.y + DOT/2, DOT/2, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      animRef.current = requestAnimationFrame(draw);
+    };
+    animRef.current = requestAnimationFrame(draw);
+    return () => { cancelAnimationFrame(animRef.current); ro.disconnect(); };
+  }, [reverse]);
+
+  return <canvas ref={canvasRef} style={{position:"absolute",inset:0,width:"100%",height:"100%"}} />;
+}
+
+// ── THEME TOGGLE ──────────────────────────────────────────────────────────────
+function ThemeToggle({ isDark, onToggle }) {
+  return (
+    <div onClick={onToggle} role="button" tabIndex={0}
+      onKeyDown={e=>e.key==="Enter"&&onToggle()}
+      style={{display:"flex",width:"56px",height:"28px",padding:"3px",borderRadius:"999px",cursor:"pointer",
+        transition:"all 0.3s",background:isDark?"#18182e":"#f0f0ff",
+        border:"1px solid "+(isDark?"#3a3a6a":"#d0d0f0"),
+        position:"relative",alignItems:"center",justifyContent:"space-between",flexShrink:0}}>
+      <div style={{position:"absolute",width:"22px",height:"22px",borderRadius:"50%",
+        transition:"transform 0.3s cubic-bezier(0.34,1.56,0.64,1)",
+        transform:isDark?"translateX(0)":"translateX(28px)",
+        background:isDark?"#4a3828":"#e8ddd0",
+        display:"flex",alignItems:"center",justifyContent:"center"}}>
+        {isDark
+          ? <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
+          : <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" strokeWidth="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>}
+      </div>
+      <div style={{width:"22px",height:"22px",display:"flex",alignItems:"center",justifyContent:"center",
+        opacity:0.4,marginLeft:isDark?"auto":"0",marginRight:isDark?"0":"auto"}}>
+        {isDark
+          ? <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#aaa" strokeWidth="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+          : <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>}
+      </div>
+    </div>
+  );
+}
+
+
+// ── GLOW BUTTON ───────────────────────────────────────────────────────────────
+function hexToRgba(hex, alpha = 1) {
+  let h = hex.replace("#", "");
+  if (h.length === 3) h = h.split("").map(c => c + c).join("");
+  const r = parseInt(h.substring(0,2),16);
+  const g = parseInt(h.substring(2,4),16);
+  const b = parseInt(h.substring(4,6),16);
+  if (isNaN(r)||isNaN(g)||isNaN(b)) return "rgba(0,0,0,1)";
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
+function GlowButton({ children, onClick, glowColor="#e8a838", icon, isDark=true, style={} }) {
+  const gc      = hexToRgba(glowColor);
+  const gcVia   = hexToRgba(glowColor, 0.09);
+  const gcTo    = hexToRgba(glowColor, 0.22);
+  const gcGlow  = hexToRgba(glowColor, 0.45);
+  const [hov, setHov] = useState(false);
+
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        position:"relative", overflow:"hidden",
+        width:"100%", padding:"14px 20px",
+        borderRadius:"14px", cursor:"pointer",
+        display:"flex", alignItems:"center", gap:"12px",
+        fontFamily:"inherit", fontSize:"15px", fontWeight:700,
+        color: isDark ? "#f5f0eb" : "#1c1410",
+        background: isDark
+          ? `linear-gradient(to top, #1c1917, #262220)`
+          : `linear-gradient(to top, #fff, #f5f0e8)`,
+        border: `1px solid ${isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.10)"}`,
+        borderRight: "none",
+        boxShadow: hov
+          ? `0 0 0 1px ${hexToRgba(glowColor,0.3)}, 0 8px 32px ${hexToRgba(glowColor,0.2)}`
+          : `0 1px 3px rgba(0,0,0,0.2)`,
+        transition: "all 0.22s ease",
+        transform: hov ? "translateY(-2px)" : "translateY(0)",
+        ...style,
+      }}
+    >
+      {/* Right glow bar */}
+      <span style={{
+        position:"absolute", right:0, top:"20%", width:"5px", height:"60%",
+        borderRadius:"4px 0 0 4px",
+        background: gc,
+        boxShadow: `-3px 0 12px ${gcGlow}, -1px 0 6px ${gc}`,
+        transform: hov ? "translateX(0)" : "translateX(100%)",
+        transition: "transform 0.22s ease",
+      }}/>
+      {/* Gradient overlay right side */}
+      <span style={{
+        position:"absolute", inset:0, borderRadius:"14px", pointerEvents:"none",
+        background: `linear-gradient(to right, transparent 40%, ${gcVia} 70%, ${gcTo} 100%)`,
+        boxShadow: `inset 0 1px 0 rgba(255,255,255,${isDark?0.07:0.6})`,
+      }}/>
+      {/* Content */}
+      {icon && <span style={{fontSize:"20px",flexShrink:0,position:"relative",zIndex:1}}>{icon}</span>}
+      <span style={{position:"relative",zIndex:1,flex:1,textAlign:"left"}}>{children}</span>
+      <span style={{
+        position:"relative",zIndex:1,fontSize:"14px",
+        opacity: hov ? 0.9 : 0.45,
+        transform: hov ? "translateX(-2px)" : "translateX(0)",
+        transition:"all 0.2s ease",
+        color: hov ? glowColor : "inherit",
+      }}>→</span>
+    </button>
+  );
+}
+
+// ── LOGIN SCREEN ──────────────────────────────────────────────────────────────
+function LoginScreen({ loginMs, loginGoogle, loginDemo, themeKey, toggleTheme, C }) {
+  const isDark = themeKey === "dark";
+  const [dotReverse, setDotReverse] = useState(false);
+  const [visible, setVisible]       = useState(true);
+
+  const handleLogin = async (fn) => {
+    setDotReverse(true);
+    await new Promise(r => setTimeout(r, 250));
+    setVisible(false);
+    await new Promise(r => setTimeout(r, 220));
+    fn();
+  };
+
+  // GlowButton handles its own hover state
+
+  const dotColors = isDark
+    ? [[200,140,50],[160,90,30],[220,160,70]]
+    : [[180,100,25],[140,80,20],[200,130,50]];
+
+  return (
+    <div style={{minHeight:"100vh",fontFamily:"'Segoe UI',system-ui,sans-serif",position:"relative",overflow:"hidden",background:isDark?"#141210":"#faf8f5"}}>
+      <style>{`
+        @keyframes loginFadeIn{from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:translateY(0)}}
+        @keyframes logoFloat{0%,100%{transform:translateY(0) rotate(-1.5deg)}50%{transform:translateY(-14px) rotate(1.5deg)}}
+        .l-card{animation:loginFadeIn 0.65s 0.1s ease both}
+        .l-logo{animation:loginFadeIn 0.65s ease both}
+        .l-pills{animation:loginFadeIn 0.65s 0.28s ease both}
+      `}</style>
+
+      {/* Dot matrix BG */}
+      <div style={{position:"absolute",inset:0,zIndex:0}}>
+        <DotMatrix reverse={dotReverse} colors={dotColors} />
+        <div style={{position:"absolute",inset:0,background:isDark
+          ?"radial-gradient(ellipse 70% 70% at 50% 50%, rgba(20,18,16,0.82) 0%, rgba(20,18,16,0.38) 65%, transparent 100%)"
+          :"radial-gradient(ellipse 70% 70% at 50% 50%, rgba(250,248,245,0.90) 0%, rgba(250,248,245,0.5) 65%, transparent 100%)"
+        }}/>
+        <div style={{position:"absolute",top:0,left:0,right:0,height:"30%",
+          background:"linear-gradient(to bottom,"+(isDark?"#141210":"#faf8f5")+",transparent)"}}/>
+        <div style={{position:"absolute",bottom:0,left:0,right:0,height:"20%",
+          background:"linear-gradient(to top,"+(isDark?"#141210":"#faf8f5")+",transparent)"}}/>
+      </div>
+
+      {/* Top bar */}
+      <div style={{position:"fixed",top:0,left:0,right:0,zIndex:50,padding:"16px 24px",
+        display:"flex",justifyContent:"space-between",alignItems:"center",
+        background:isDark?"rgba(20,18,16,0.6)":"rgba(250,248,245,0.6)",
+        backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)",
+        borderBottom:"1px solid "+(isDark?"rgba(255,255,255,0.05)":"rgba(0,0,0,0.05)")}}>
+        <div style={{display:"flex",alignItems:"center",gap:"10px"}}>
+          <div style={{width:"32px",height:"32px",borderRadius:"10px",background:C.gradient,
+            display:"flex",alignItems:"center",justifyContent:"center",fontSize:"18px",
+            boxShadow:"0 4px 16px rgba(200,130,40,0.35)"}}>📅</div>
+          <span style={{fontWeight:800,fontSize:"15px",color:isDark?"#f5f0eb":"#1c1410",letterSpacing:"-0.3px"}}>
+            Evrensel Takvim
+          </span>
+        </div>
+        <ThemeToggle isDark={isDark} onToggle={toggleTheme} />
+      </div>
+
+      {/* Content */}
+      <div style={{position:"relative",zIndex:10,minHeight:"100vh",display:"flex",
+        flexDirection:"column",alignItems:"center",justifyContent:"center",
+        padding:"24px",paddingTop:"80px",paddingBottom:"40px",
+        opacity:visible?1:0,transform:visible?"translateY(0)":"translateY(-16px)",
+        transition:"opacity 0.25s ease, transform 0.25s ease"}}>
+
+        {/* Logo */}
+        <div className="l-logo" style={{textAlign:"center",marginBottom:"36px"}}>
+          <div style={{fontSize:"76px",marginBottom:"10px",display:"inline-block",
+            animation:"logoFloat 5s ease-in-out infinite",
+            filter:"drop-shadow(0 0 28px "+(isDark?"rgba(232,168,56,0.45)":"rgba(184,98,26,0.3)")+")"}}>
+            📅
+          </div>
+          <h1 key={themeKey} style={{margin:0,fontSize:"clamp(24px,5vw,34px)",fontWeight:900,letterSpacing:"-0.8px",
+            background:isDark?"linear-gradient(135deg,#c97c2e,#e8a838)":"linear-gradient(135deg,#a0521a,#c97c2e)",
+            WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",
+            backgroundClip:"text",lineHeight:1.1,display:"inline-block"}}>
+            Evrensel Takvim
+          </h1>
+          <p style={{color:isDark?"rgba(245,240,235,0.5)":"rgba(40,28,16,0.52)",
+            marginTop:"10px",fontSize:"15px",fontWeight:400}}>
+            Outlook & Google Calendar — tek uygulamada
+          </p>
+        </div>
+
+        {/* Card */}
+        <div className="l-card" style={{
+          width:"100%",maxWidth:"400px",
+          background:isDark?"rgba(28,24,20,0.92)":"rgba(255,255,253,0.93)",
+          backdropFilter:"blur(24px)",WebkitBackdropFilter:"blur(24px)",
+          borderRadius:"24px",padding:"32px",
+          border:"1px solid "+(isDark?"rgba(255,255,255,0.06)":"rgba(0,0,0,0.06)"),
+          boxShadow:isDark
+            ?"0 32px 80px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.05)"
+            :"0 32px 80px rgba(60,30,10,0.10), inset 0 1px 0 rgba(255,255,255,0.9)",
+        }}>
+          <div style={{fontSize:"11px",fontWeight:700,letterSpacing:"1.8px",textTransform:"uppercase",
+            color:isDark?"rgba(220,200,175,0.45)":"rgba(60,40,20,0.42)",
+            textAlign:"center",marginBottom:"20px"}}>
+            Hesabınızla giriş yapın
+          </div>
+
+          <div style={{display:"flex",flexDirection:"column",gap:"12px"}}>
+            <GlowButton onClick={()=>handleLogin(loginMs)} glowColor="#2581c4" icon="📘" isDark={isDark}>
+              Microsoft Outlook ile Giriş
+            </GlowButton>
+
+            <GlowButton onClick={()=>handleLogin(loginGoogle)} glowColor="#4a9e6a" icon="📗" isDark={isDark}>
+              Google Calendar ile Giriş
+            </GlowButton>
+
+            <div style={{display:"flex",alignItems:"center",gap:"12px",margin:"4px 0"}}>
+              <div style={{flex:1,height:"1px",background:isDark?"rgba(255,255,255,0.07)":"rgba(60,30,10,0.08)"}}/>
+              <span style={{color:isDark?"rgba(200,175,145,0.35)":"rgba(60,40,20,0.35)",fontSize:"12px"}}>veya</span>
+              <div style={{flex:1,height:"1px",background:isDark?"rgba(255,255,255,0.07)":"rgba(60,30,10,0.08)"}}/>
+            </div>
+
+            <GlowButton onClick={loginDemo} glowColor="#e8a838" icon="🎮" isDark={isDark}>
+              Demo Olarak Dene
+            </GlowButton>
+          </div>
+
+          <p style={{color:isDark?"rgba(200,175,145,0.38)":"rgba(60,40,20,0.38)",
+            fontSize:"12px",textAlign:"center",marginTop:"20px",lineHeight:1.75}}>
+            İki hesabı birden bağlayabilirsiniz.{" "}
+            <span style={{color:isDark?"rgba(232,168,56,0.7)":"rgba(184,98,26,0.75)"}}>
+              Giriş sonrası Hesaplar
+            </span>{" "}
+            menüsünden ekleyebilirsiniz.
+          </p>
+        </div>
+
+        {/* Feature pills */}
+        <div className="l-pills" style={{display:"flex",gap:"8px",marginTop:"24px",flexWrap:"wrap",justifyContent:"center"}}>
+          {[
+            {icon:"📋",label:"Birleşik Liste"},
+            {icon:"🗓️",label:"Takvim"},
+            {icon:"🔔",label:"Bildirimler"},
+            {icon:"👥",label:"Davet Gönder"},
+          ].map(f=>(
+            <div key={f.label} style={{display:"flex",alignItems:"center",gap:"6px",
+              padding:"6px 14px",borderRadius:"999px",
+              background:isDark?"rgba(255,255,255,0.04)":"rgba(60,30,10,0.04)",
+              border:"1px solid "+(isDark?"rgba(255,255,255,0.07)":"rgba(60,30,10,0.07)"),
+              fontSize:"13px",color:isDark?"rgba(220,195,165,0.65)":"rgba(60,40,20,0.6)",
+              backdropFilter:"blur(8px)"}}>
+              <span>{f.icon}</span><span>{f.label}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // Animated modal hook: call close() to animate then unmount
 function useAnimatedModal(setter) {
   const [closing, setClosing] = useState(false);
@@ -99,40 +425,67 @@ const GG_AUTH_URL     = "https://accounts.google.com/o/oauth2/v2/auth";
 // ── THEMES ────────────────────────────────────────────────────────────────────
 const THEMES = {
   dark: {
-    bg:"#080812", surface:"#12122a", card:"#1a1a35", header:"#0d0d24",
-    teal:"#00d4ff", accent:"#7c3aed", text:"#f0f0ff", muted:"#7878a0",
-    border:"#25254a", success:"#00e5a0", warning:"#ffb020", danger:"#ff4466",
-    navBg:"#12122a", tag:"#1e1e40",
-    gradient:"linear-gradient(135deg,#7c3aed,#00d4ff)",
-    ms:"linear-gradient(135deg,#0078d4,#106ebe)",
-    google:"linear-gradient(135deg,#ea4335,#fbbc04,#34a853,#4285f4)",
-    googleSolid:"linear-gradient(135deg,#4285f4,#34a853)",
+    // Warm Dark — derin kahve-gri zeminler, amber vurgular
+    bg:      "#141210",   // Çok koyu kahve-siyah
+    surface: "#1c1917",   // Koyu kahve (stone-900)
+    card:    "#231f1c",   // Biraz açık kahve
+    header:  "#1a1614",   // Header için derin ton
+
+    teal:    "#e8a838",   // Ana vurgu: altın-amber
+    accent:  "#c97c2e",   // İkincil: koyu amber
+    text:    "#f5f0eb",   // Ana metin: warm white
+    muted:   "#8a7e72",   // Soluk metin: warm gray
+    border:  "#2e2924",   // Kenarlık: warm dark
+    success: "#65a86e",   // Başarı: sage green
+    warning: "#d4943a",   // Uyarı: amber
+    danger:  "#c0514a",   // Tehlike: muted red
+    navBg:   "#1c1917",
+    tag:     "#262220",   // Tag arka planı
+
+    // Gradient: amber'dan warm gold'a
+    gradient: "linear-gradient(135deg,#c97c2e,#e8a838)",
+    ms:       "linear-gradient(135deg,#1e6ba8,#2581c4)",
+    google:   "linear-gradient(135deg,#c0514a,#d4943a,#65a86e,#3a7bd5)",
+    googleSolid: "linear-gradient(135deg,#3a7bd5,#65a86e)",
   },
   light: {
-    bg:"#eef2ff", surface:"#ffffff", card:"#ffffff", header:"linear-gradient(135deg,#6d28d9,#4f46e5)",
-    teal:"#6d28d9", accent:"#06b6d4", text:"#1e1b4b", muted:"#6b7280",
-    border:"#e0e7ff", success:"#059669", warning:"#d97706", danger:"#dc2626",
-    navBg:"#ffffff", tag:"#f5f3ff",
-    gradient:"linear-gradient(135deg,#6d28d9,#06b6d4)",
-    ms:"linear-gradient(135deg,#0078d4,#106ebe)",
-    google:"linear-gradient(135deg,#ea4335,#fbbc04,#34a853,#4285f4)",
-    googleSolid:"linear-gradient(135deg,#4285f4,#34a853)",
+    // Cream Light — krem/warm white zeminler, amber vurgular
+    bg:      "#faf8f5",   // Warm white krem
+    surface: "#ffffff",   // Saf beyaz
+    card:    "#fffefb",   // Hafif warm beyaz
+    header:  "#2c2420",   // Koyu kahve header
+
+    teal:    "#b8621a",   // Ana vurgu: koyu amber
+    accent:  "#d4943a",   // İkincil: amber
+    text:    "#1c1410",   // Ana metin: neredeyse siyah-kahve
+    muted:   "#7a6e65",   // Soluk metin: warm gray
+    border:  "#e8e0d5",   // Kenarlık: warm gray
+    success: "#3d7a46",   // Başarı: forest green
+    warning: "#a0621a",   // Uyarı: amber
+    danger:  "#a03030",   // Tehlike: muted red
+    navBg:   "#ffffff",
+    tag:     "#f5f0e8",   // Tag: warm cream
+
+    gradient: "linear-gradient(135deg,#a0521a,#c97c2e)",
+    ms:       "linear-gradient(135deg,#1e6ba8,#2581c4)",
+    google:   "linear-gradient(135deg,#c0514a,#d4943a,#3d7a46,#3a7bd5)",
+    googleSolid: "linear-gradient(135deg,#3a7bd5,#3d7a46)",
   }
 };
 
 const CAT_COLORS_DARK = {
-  "Toplantı": { bg:"#1e3a5f", text:"#60a5fa", dot:"#3b82f6" },
-  "Kişisel":  { bg:"#3b1f5e", text:"#c084fc", dot:"#a855f7" },
-  "İş":       { bg:"#1e4d3b", text:"#34d399", dot:"#10b981" },
-  "Önemli":   { bg:"#5c1c1c", text:"#fca5a5", dot:"#ef4444" },
-  "Diğer":    { bg:"#1e3a2e", text:"#6ee7b7", dot:"#059669" },
+  "Toplantı": { bg:"#1e2a1e", text:"#7ab87a", dot:"#5a9e5a" },
+  "Kişisel":  { bg:"#2a1e1a", text:"#d4936a", dot:"#c0714a" },
+  "İş":       { bg:"#1e2030", text:"#7a9ec0", dot:"#5a82a8" },
+  "Önemli":   { bg:"#2a1a1a", text:"#c07070", dot:"#a85050" },
+  "Diğer":    { bg:"#252018", text:"#c0a870", dot:"#a08050" },
 };
 const CAT_COLORS_LIGHT = {
-  "Toplantı": { bg:"#dbeafe", text:"#1d4ed8", dot:"#3b82f6" },
-  "Kişisel":  { bg:"#f3e8ff", text:"#7e22ce", dot:"#a855f7" },
-  "İş":       { bg:"#dcfce7", text:"#15803d", dot:"#22c55e" },
-  "Önemli":   { bg:"#fee2e2", text:"#b91c1c", dot:"#ef4444" },
-  "Diğer":    { bg:"#d1fae5", text:"#065f46", dot:"#10b981" },
+  "Toplantı": { bg:"#e8f5e8", text:"#2d6a2d", dot:"#3d8a3d" },
+  "Kişisel":  { bg:"#fdf0e8", text:"#8a4010", dot:"#b05a20" },
+  "İş":       { bg:"#e8eff8", text:"#1a3f6a", dot:"#2a5f9a" },
+  "Önemli":   { bg:"#fae8e8", text:"#7a1a1a", dot:"#a02a2a" },
+  "Diğer":    { bg:"#f5f0e0", text:"#5a4010", dot:"#7a5820" },
 };
 // Will be set based on theme - default dark
 let CAT_COLORS = CAT_COLORS_DARK;
@@ -923,44 +1276,7 @@ export default function App() {
 
   // ── LOGIN SCREEN ───────────────────────────────────────────────────────────
   if(screen==="login"){
-    return(
-      <div style={{minHeight:"100vh",background:C.bg,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Segoe UI',system-ui,sans-serif",padding:"24px"}}>
-        <style>{`
-          @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
-          .lc{animation:float 4s ease-in-out infinite}
-          .lbtn{transition:all 0.25s cubic-bezier(0.34,1.56,0.64,1)!important;cursor:pointer!important}
-          .lbtn:hover{transform:translateY(-3px) scale(1.02)!important;filter:brightness(1.1)}
-          .lbtn:active{transform:scale(0.97)!important}
-        `}</style>
-        <div className="lc" style={{width:"100%",maxWidth:"420px"}}>
-          <div style={{textAlign:"center",marginBottom:"32px"}}>
-            <div style={{fontSize:"72px",marginBottom:"8px",filter:"drop-shadow(0 0 24px rgba(0,212,255,0.4))"}}>📅</div>
-            <h1 style={{background:C.gradient,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",fontSize:"28px",margin:0,fontWeight:800}}>Evrensel Takvim</h1>
-            <p style={{color:C.muted,marginTop:"8px",fontSize:"14px"}}>Outlook & Google Calendar tek uygulamada</p>
-          </div>
-          <div style={{background:C.surface,borderRadius:"24px",padding:"32px",boxShadow:"0 25px 80px rgba(0,0,0,0.4)",border:"1px solid "+C.border}}>
-            <div style={{fontSize:"13px",fontWeight:600,color:C.muted,marginBottom:"16px",textAlign:"center",textTransform:"uppercase",letterSpacing:0.5}}>Hesabınızla giriş yapın</div>
-            <div style={{display:"flex",flexDirection:"column",gap:"12px"}}>
-              <RippleButton className="lbtn" onClick={loginMs} style={{padding:"15px",borderRadius:"14px",background:"linear-gradient(135deg,#0078d4,#106ebe)",border:"none",color:"white",fontSize:"15px",fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",gap:"10px",boxShadow:"0 4px 20px rgba(0,120,212,0.35)"}}>
-                <span style={{fontSize:"20px"}}>📘</span> Microsoft Outlook ile Giriş
-              </RippleButton>
-              <RippleButton className="lbtn" onClick={loginGoogle} style={{padding:"15px",borderRadius:"14px",background:"linear-gradient(135deg,#4285f4,#34a853)",border:"none",color:"white",fontSize:"15px",fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",gap:"10px",boxShadow:"0 4px 20px rgba(66,133,244,0.35)"}}>
-                <span style={{fontSize:"20px"}}>📗</span> Google Calendar ile Giriş
-              </RippleButton>
-              <div style={{display:"flex",alignItems:"center",gap:"10px",margin:"4px 0"}}>
-                <div style={{flex:1,height:"1px",background:C.border}}/><span style={{color:C.muted,fontSize:"12px"}}>veya</span><div style={{flex:1,height:"1px",background:C.border}}/>
-              </div>
-              <RippleButton className="lbtn" onClick={loginDemo} style={{padding:"15px",borderRadius:"14px",background:"linear-gradient(135deg,#7c3aed,#5b21b6)",border:"none",color:"white",fontSize:"15px",fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",gap:"10px",boxShadow:"0 4px 20px rgba(124,58,237,0.35)"}}>
-                <span style={{fontSize:"20px"}}>🎮</span> Demo Olarak Dene
-              </RippleButton>
-            </div>
-            <p style={{color:C.muted,fontSize:"12px",textAlign:"center",marginTop:"16px",lineHeight:1.6}}>
-              Her iki hesabı da bağlayabilirsiniz — giriş sonrası hesap ayarlarından ekleyebilirsiniz.
-            </p>
-          </div>
-        </div>
-      </div>
-    );
+    return <LoginScreen loginMs={loginMs} loginGoogle={loginGoogle} loginDemo={loginDemo} themeKey={themeKey} toggleTheme={toggleTheme} C={C} />;
   }
 
   // ── APP ────────────────────────────────────────────────────────────────────
@@ -1062,7 +1378,7 @@ export default function App() {
         <div style={{display:"flex",gap:"8px",alignItems:"center"}}>
           {notifPerm!=="granted"&&<button onClick={async()=>{const p=await Notification.requestPermission();setNotifPerm(p);if(p==="granted")showToast("🔔 Bildirimler açıldı!");}} style={{background:"rgba(255,255,255,0.1)",border:"none",borderRadius:"10px",padding:"8px 10px",color:"white",fontSize:"14px",cursor:"pointer"}}>🔔</button>}
           <button onClick={()=>{ if(showAccounts) closeAccounts(); else setShowAccounts(true); }} style={{background:"rgba(255,255,255,0.1)",border:"none",borderRadius:"10px",padding:"8px 12px",color:"white",fontSize:"13px",fontWeight:600,cursor:"pointer"}}>👤 Hesaplar</button>
-          <button onClick={toggleTheme} style={{background:"rgba(255,255,255,0.1)",border:"none",borderRadius:"10px",padding:"8px 10px",color:"white",fontSize:"15px",cursor:"pointer"}}>{themeKey==="dark"?"☀️":"🌙"}</button>
+          <ThemeToggle isDark={themeKey==="dark"} onToggle={toggleTheme} />
           {!isMobile&&<RippleButton onClick={()=>{ if(showAddPanel) closeAddPanel(); else setShowAddPanel(true); }} style={{background:C.gradient,border:"none",borderRadius:"10px",padding:"8px 18px",color:"white",fontSize:"14px",fontWeight:700,boxShadow:`0 4px 14px ${C.teal}33`,transition:"transform 0.2s,box-shadow 0.2s"}}>➕ Yeni Ekle</RippleButton>}
         </div>
       </header>
