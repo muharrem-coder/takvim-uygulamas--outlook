@@ -33,16 +33,24 @@ module.exports = async function handler(req, res) {
 
       for await (const msg of client.fetch(`${start}:${total}`, {
         envelope: true,
-        bodyParts: ["text"],
+        source: true,
       })) {
         const from = msg.envelope?.from?.[0]
           ? `${msg.envelope.from[0].name || ""} <${msg.envelope.from[0].address || ""}>`
           : "";
 
+        // source tüm raw maili verir, ilk 1500 karakteri alıyoruz
         let bodyText = "";
-        if (msg.bodyParts) {
-          for (const [, content] of msg.bodyParts) {
-            bodyText += content.toString().substring(0, 800);
+        if (msg.source) {
+          const raw = msg.source.toString();
+          // Header'ı atla, sadece body al
+          const bodyStart = raw.indexOf("\r\n\r\n");
+          bodyText = bodyStart > -1
+            ? raw.substring(bodyStart + 4, bodyStart + 1504)
+            : raw.substring(0, 1500);
+          // base64 encoded ise decode et
+          if (bodyText.match(/^[A-Za-z0-9+/=\r\n]+$/)) {
+            try { bodyText = Buffer.from(bodyText.replace(/\s/g, ""), "base64").toString("utf8").substring(0, 1000); } catch {}
           }
         }
 
