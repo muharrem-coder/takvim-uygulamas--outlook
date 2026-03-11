@@ -1003,13 +1003,21 @@ function YandexMailSection({ C, yandexUser, onClose }) {
       const found = [];
       for (const mail of data.messages) {
         try {
+          if (!mail.subject && !mail.body) continue;
           const r = await fetch("/api/parse-event", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ subject: mail.subject, body: mail.body, from: mail.from, date: mail.date }),
           });
-          const parsed = await r.json();
-          if (parsed.event) found.push({ ...parsed.event, _from: mail.from, _subject: mail.subject });
+          if (!r.ok) continue;
+          const text = await r.text();
+          if (!text || text.trim() === "") continue;
+          let parsed;
+          try { parsed = JSON.parse(text); } catch { continue; }
+          if (parsed && parsed.event && parsed.event.title && parsed.event.start) {
+            found.push({ ...parsed.event, _from: mail.from, _subject: mail.subject });
+          }
+          await new Promise(resolve => setTimeout(resolve, 300));
         } catch {}
       }
       setEvents(found);
