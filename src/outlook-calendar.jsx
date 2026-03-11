@@ -967,6 +967,195 @@ function AddForm({ form, setForm, onSave, onCancel, saving, C, msConnected, goog
 }
 
 // ── ACCOUNT PANEL ─────────────────────────────────────────────────────────────
+// ── YANDEX MAIL SECTION ───────────────────────────────────────────────────────
+function YandexMailSection({ C, yandexUser, onClose }) {
+  const [appPass, setAppPass]     = useState(sessionStorage.getItem("ya_app_pass")||"");
+  const [loading, setLoading]     = useState(false);
+  const [mails, setMails]         = useState([]);
+  const [error, setError]         = useState("");
+  const [scanning, setScanning]   = useState(false);
+  const [events, setEvents]       = useState([]);
+  const [savedPass, setSavedPass] = useState(!!sessionStorage.getItem("ya_app_pass"));
+
+  const email = yandexUser?.default_email || yandexUser?.login
+    ? (yandexUser.default_email || yandexUser.login + "@yandex.ru")
+    : "";
+
+  const savePass = () => {
+    sessionStorage.setItem("ya_app_pass", appPass);
+    setSavedPass(true);
+  };
+
+  const scanMails = async () => {
+    if (!appPass) return;
+    setLoading(true); setError(""); setMails([]); setEvents([]);
+    try {
+      const res = await fetch("/api/yandex-mail", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, appPassword: appPass }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Bağlantı hatası");
+      setMails(data.messages || []);
+      // AI ile event tara
+      setScanning(true);
+      const found = [];
+      for (const mail of data.messages) {
+        try {
+          const r = await fetch("/api/parse-event", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ subject: mail.subject, body: mail.body, from: mail.from, date: mail.date }),
+          });
+          const parsed = await r.json();
+          if (parsed.event) found.push({ ...parsed.event, _from: mail.from, _subject: mail.subject });
+        } catch {}
+      }
+      setEvents(found);
+      setScanning(false);
+    } catch (e) {
+      setError(e.message);
+    }
+    setLoading(false);
+  };
+
+  return (
+    <div style={{background:C.card,borderRadius:"16px",padding:"18px",border:`1px solid rgba(232,24,12,0.2)`,marginBottom:"16px"}}>
+      <div style={{fontWeight:700,fontSize:"14px",color:C.text,marginBottom:"12px"}}>📧 Yandex Mail Tarama</div>
+
+      {/* Email göster */}
+      <div style={{fontSize:"12px",color:C.muted,marginBottom:"10px"}}>Hesap: <span style={{color:C.teal}}>{email}</span></div>
+
+      {/* App password input */}
+      <div style={{display:"flex",gap:"8px",marginBottom:"12px"}}>
+        <input
+          type="password"
+          placeholder="Uygulama şifresi (16 karakter)"
+          value={appPass}
+          onChange={e=>setAppPass(e.target.value)}
+          style={{flex:1,padding:"10px 12px",borderRadius:"10px",border:`1px solid ${C.border}`,
+            background:C.surface,color:C.text,fontSize:"13px",outline:"none"}}
+        />
+        <RippleButton onClick={savePass} style={{padding:"10px 14px",borderRadius:"10px",
+          background:C.tag,border:`1px solid ${C.border}`,color:C.muted,fontSize:"13px",fontWeight:600}}>
+          💾
+        </RippleButton>
+        <RippleButton onClick={scanMails} disabled={!appPass||loading}
+          style={{padding:"10px 16px",borderRadius:"10px",background:"rgba(232,24,12,0.15)",
+            border:"1px solid rgba(232,24,12,0.3)",color:"#e8180c",fontSize:"13px",fontWeight:700}}>
+          {loading ? "⏳" : "Tara"}
+        </RippleButton>
+      </div>
+
+      {savedPass && !loading && mails.length===0 && !error &&
+        <div style={{fontSize:"12px",color:C.muted}}>✅ Şifre kaydedildi. "Tara" butonuna basın.</div>}
+
+      {error && <div style={{fontSize:"12px",color:"#e8180c",padding:"8px",background:"rgba(232,24,12,0.1)",borderRadius:"8px"}}>{error}</div>}
+
+      {scanning && <div style={{fontSize:"12px",color:C.muted,marginTop:"8px"}}>🤖 AI mailler analiz ediyor...</div>}
+
+      {/* Bulunan etkinlikler */}
+      {events.length > 0 && (
+        <div style={{marginTop:"12px"}}>
+          <div style={{fontSize:"12px",fontWeight:700,color:C.teal,marginBottom:"8px"}}>
+            🎉 {events.length} etkinlik bulundu!
+          </div>
+          {events.map((ev, i) => (
+            <FoundEventCard key={i} ev={ev} C={C} onClose={onClose} />
+          ))}
+        </div>
+      )}
+
+      {!loading && !scanning && mails.length > 0 && events.length === 0 &&
+        <div style={{fontSize:"12px",color:C.muted,marginTop:"8px"}}>📭 Maillerinizde takvim etkinliği bulunamadı.</div>}
+
+      {/* Yardım linki */}
+      <div style={{fontSize:"11px",color:C.muted,marginTop:"10px",lineHeight:1.6}}>
+        Uygulama şifresi nasıl oluşturulur?{" "}
+        <a href="https://id.yandex.com/security/app-passwords" target="_blank" rel="noreferrer"
+          style={{color:C.teal}}>id.yandex.com →</a>
+      </div>
+    </div>
+  );
+}
+
+function FoundEventCard({ ev, C, onClose }) {
+  const [saving, setSaving]   = useState(false);
+  const [saved, setSaved]     = useState(false);
+  const [target, setTarget]   = useState("outlook");
+
+  const save = async () => {
+    setSaving(true);
+    // ms_token veya gg_token al
+    const msToken  = sessionStorage.getItem("ms_token");
+    const ggToken  = sessionStorage.getItem("gg_token");
+    const token    = target === "outlook" ? msToken : ggToken;
+    if (!token) { alert("Önce " + (target==="outlook"?"Outlook":"Google") + " hesabına giriş yapın!"); setSaving(false); return; }
+
+    try {
+      if (target === "outlook") {
+        const body = {
+          subject: ev.title,
+          start: { dateTime: ev.start, timeZone: "Europe/Istanbul" },
+          end:   { dateTime: ev.end || ev.start, timeZone: "Europe/Istanbul" },
+          location: { displayName: ev.location || "" },
+          body: { contentType: "text", content: ev.description || "" },
+        };
+        const res = await fetch("https://graph.microsoft.com/v1.0/me/events", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        if (res.ok) setSaved(true);
+      } else {
+        const body = {
+          summary: ev.title,
+          start: { dateTime: ev.start, timeZone: "Europe/Istanbul" },
+          end:   { dateTime: ev.end || ev.start, timeZone: "Europe/Istanbul" },
+          location: ev.location || "",
+          description: ev.description || "",
+        };
+        const res = await fetch("https://www.googleapis.com/calendar/v3/calendars/primary/events", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        if (res.ok) setSaved(true);
+      }
+    } catch {}
+    setSaving(false);
+  };
+
+  return (
+    <div style={{background:C.surface,borderRadius:"12px",padding:"14px",border:`1px solid ${C.border}`,marginBottom:"8px"}}>
+      <div style={{fontWeight:700,fontSize:"13px",color:C.text,marginBottom:"4px"}}>📅 {ev.title}</div>
+      <div style={{fontSize:"12px",color:C.muted,marginBottom:"2px"}}>🕐 {ev.start?.replace("T"," ").substring(0,16)}</div>
+      {ev.location && <div style={{fontSize:"12px",color:C.muted,marginBottom:"2px"}}>📍 {ev.location}</div>}
+      {ev.description && <div style={{fontSize:"11px",color:C.muted,marginBottom:"8px",lineHeight:1.5}}>{ev.description}</div>}
+      <div style={{fontSize:"11px",color:C.muted,marginBottom:"8px"}}>📨 {ev._from}</div>
+
+      {!saved ? (
+        <div style={{display:"flex",gap:"8px",alignItems:"center"}}>
+          <select value={target} onChange={e=>setTarget(e.target.value)}
+            style={{padding:"6px 10px",borderRadius:"8px",border:`1px solid ${C.border}`,
+              background:C.tag,color:C.text,fontSize:"12px",flex:1}}>
+            <option value="outlook">📘 Outlook'a Ekle</option>
+            <option value="google">📗 Google'a Ekle</option>
+          </select>
+          <RippleButton onClick={save} disabled={saving}
+            style={{padding:"7px 14px",borderRadius:"8px",background:C.gradient,
+              border:"none",color:"white",fontSize:"12px",fontWeight:700}}>
+            {saving ? "⏳" : "Ekle"}
+          </RippleButton>
+        </div>
+      ) : (
+        <div style={{fontSize:"12px",color:"#65a86e",fontWeight:700}}>✅ Takvime eklendi!</div>
+      )}
+    </div>
+  );
+}
+
 function AccountPanel({ msUser, googleUser, yandexUser, onConnectMs, onConnectGoogle, onConnectYandex, onDisconnectMs, onDisconnectGoogle, onDisconnectYandex, C, isMobile, onClose, isClosing }) {
   const closing = isClosing;
   const handleClose = onClose;
@@ -1069,8 +1258,11 @@ function AccountPanel({ msUser, googleUser, yandexUser, onConnectMs, onConnectGo
 
         {/* Info note */}
         <div style={{padding:"14px 16px",background:C.tag,borderRadius:"14px",fontSize:"13px",color:C.muted,lineHeight:1.6,marginBottom:"20px"}}>
-          💡 Her iki hesabı da bağlarsanız etkinlik eklerken hangi takvime kaydedileceğini seçebilirsiniz.
+          💡 Yandex Mail'den etkinlik taramak için <strong style={{color:C.teal}}>uygulama şifresi</strong> gereklidir. <a href="https://id.yandex.com/security/app-passwords" target="_blank" rel="noreferrer" style={{color:C.teal}}>Buradan oluşturun →</a>
         </div>
+
+        {/* Yandex App Password input — only show if yandex connected */}
+        {yandexUser && <YandexMailSection C={C} yandexUser={yandexUser} onClose={onClose} />}
 
         <RippleButton onClick={handleClose} style={{width:"100%",padding:"14px",borderRadius:"14px",background:C.gradient,border:"none",color:"white",fontSize:"15px",fontWeight:700}}>
           Tamam
