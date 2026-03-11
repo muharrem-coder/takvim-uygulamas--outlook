@@ -207,8 +207,57 @@ function GlowButton({ children, onClick, glowColor="#e8a838", icon, isDark=true,
   );
 }
 
+
+// ── APP ICON SVG ──────────────────────────────────────────────────────────────
+function AppIcon({ size = 32, style = {} }) {
+  const s = size / 512;
+  return (
+    <svg width={size} height={size} viewBox='0 0 512 512' fill='none' xmlns='http://www.w3.org/2000/svg' style={style}>
+      <defs>
+        <linearGradient id='ibg' x1='0' y1='0' x2='512' y2='512' gradientUnits='userSpaceOnUse'>
+          <stop offset='0%' stopColor='#2a2218'/>
+          <stop offset='100%' stopColor='#141210'/>
+        </linearGradient>
+        <linearGradient id='iamber' x1='0' y1='0' x2='512' y2='512' gradientUnits='userSpaceOnUse'>
+          <stop offset='0%' stopColor='#c97c2e'/>
+          <stop offset='100%' stopColor='#e8a838'/>
+        </linearGradient>
+      </defs>
+      {/* Background */}
+      <rect width='512' height='512' rx='112' fill='url(#ibg)'/>
+      <rect x='1' y='1' width='510' height='510' rx='111' fill='none' stroke='rgba(255,255,255,0.08)' strokeWidth='2'/>
+      {/* Envelope body */}
+      <rect x='52' y='202' width='285' height='202' rx='18' fill='#201c18' stroke='url(#iamber)' strokeWidth='10'/>
+      {/* Envelope V fold */}
+      <path d='M52 224 L194 302 L337 224' fill='none' stroke='url(#iamber)' strokeWidth='10' strokeLinejoin='round' opacity='0.85'/>
+      <path d='M52 384 L144 318' fill='none' stroke='url(#iamber)' strokeWidth='7' opacity='0.35'/>
+      <path d='M337 384 L245 318' fill='none' stroke='url(#iamber)' strokeWidth='7' opacity='0.35'/>
+      {/* Calendar body */}
+      <rect x='268' y='68' width='196' height='196' rx='22' fill='#1c1814' stroke='url(#iamber)' strokeWidth='11'/>
+      {/* Calendar header */}
+      <rect x='268' y='68' width='196' height='58' rx='22' fill='url(#iamber)' opacity='0.2'/>
+      <rect x='268' y='104' width='196' height='22' fill='url(#iamber)' opacity='0.18'/>
+      {/* Rings */}
+      <rect x='306' y='44' width='15' height='54' rx='7' fill='url(#iamber)'/>
+      <rect x='411' y='44' width='15' height='54' rx='7' fill='url(#iamber)'/>
+      {/* Grid dots */}
+      <circle cx='310' cy='180' r='7' fill='#e8a838' opacity='0.45'/>
+      <circle cx='364' cy='180' r='7' fill='#e8a838' opacity='0.65'/>
+      <circle cx='418' cy='180' r='7' fill='#e8a838' opacity='0.35'/>
+      <circle cx='310' cy='224' r='7' fill='#e8a838' opacity='0.35'/>
+      <circle cx='418' cy='224' r='7' fill='#e8a838' opacity='0.5'/>
+      {/* Highlight cell */}
+      <rect x='340' y='200' width='52' height='48' rx='10' fill='url(#iamber)' opacity='0.88'/>
+      <text x='366' y='234' textAnchor='middle' fontFamily='Georgia,serif' fontSize='28' fontWeight='700' fill='#141210'>7</text>
+      {/* Dashed arc */}
+      <path d='M274 166 Q210 130 194 132' fill='none' stroke='url(#iamber)' strokeWidth='6' strokeDasharray='10 8' opacity='0.55'/>
+      <circle cx='192' cy='133' r='9' fill='url(#iamber)' opacity='0.7'/>
+    </svg>
+  );
+}
+
 // ── LOGIN SCREEN ──────────────────────────────────────────────────────────────
-function LoginScreen({ loginMs, loginGoogle, loginDemo, themeKey, toggleTheme, C }) {
+function LoginScreen({ loginMs, loginGoogle, loginYandex, loginDemo, themeKey, toggleTheme, C }) {
   const isDark = themeKey === "dark";
   const [dotReverse, setDotReverse] = useState(false);
   const [visible, setVisible]       = useState(true);
@@ -258,8 +307,9 @@ function LoginScreen({ loginMs, loginGoogle, loginDemo, themeKey, toggleTheme, C
         borderBottom:"1px solid "+(isDark?"rgba(255,255,255,0.05)":"rgba(0,0,0,0.05)")}}>
         <div style={{display:"flex",alignItems:"center",gap:"10px"}}>
           <div style={{width:"32px",height:"32px",borderRadius:"10px",background:C.gradient,
-            display:"flex",alignItems:"center",justifyContent:"center",fontSize:"18px",
-            boxShadow:"0 4px 16px rgba(200,130,40,0.35)"}}>📅</div>
+            display:"flex",alignItems:"center",justifyContent:"center",
+            boxShadow:"0 4px 16px rgba(200,130,40,0.35)"}}>
+            <MailCalIcon size={32} /></div>
           <span style={{fontWeight:800,fontSize:"15px",color:isDark?"#f5f0eb":"#1c1410",letterSpacing:"-0.3px"}}>
             Evrensel Takvim
           </span>
@@ -279,7 +329,7 @@ function LoginScreen({ loginMs, loginGoogle, loginDemo, themeKey, toggleTheme, C
           <div style={{fontSize:"76px",marginBottom:"10px",display:"inline-block",
             animation:"logoFloat 5s ease-in-out infinite",
             filter:"drop-shadow(0 0 28px "+(isDark?"rgba(232,168,56,0.45)":"rgba(184,98,26,0.3)")+")"}}>
-            📅
+            <MailCalIcon size={80} />
           </div>
           <h1 key={themeKey} style={{margin:0,fontSize:"clamp(24px,5vw,34px)",fontWeight:900,letterSpacing:"-0.8px",
             background:isDark?"linear-gradient(135deg,#c97c2e,#e8a838)":"linear-gradient(135deg,#a0521a,#c97c2e)",
@@ -319,6 +369,10 @@ function LoginScreen({ loginMs, loginGoogle, loginDemo, themeKey, toggleTheme, C
               Google Calendar ile Giriş
             </GlowButton>
 
+            <GlowButton onClick={()=>handleLogin(loginYandex)} glowColor="#e8180c" icon="📧" isDark={isDark}>
+              Yandex ile Giriş
+            </GlowButton>
+
             <div style={{display:"flex",alignItems:"center",gap:"12px",margin:"4px 0"}}>
               <div style={{flex:1,height:"1px",background:isDark?"rgba(255,255,255,0.07)":"rgba(60,30,10,0.08)"}}/>
               <span style={{color:isDark?"rgba(200,175,145,0.35)":"rgba(60,40,20,0.35)",fontSize:"12px"}}>veya</span>
@@ -332,11 +386,11 @@ function LoginScreen({ loginMs, loginGoogle, loginDemo, themeKey, toggleTheme, C
 
           <p style={{color:isDark?"rgba(200,175,145,0.38)":"rgba(60,40,20,0.38)",
             fontSize:"12px",textAlign:"center",marginTop:"20px",lineHeight:1.75}}>
-            İki hesabı birden bağlayabilirsiniz.{" "}
+            Outlook, Google veya Yandex hesabınızla giriş yapın.{" "}
             <span style={{color:isDark?"rgba(232,168,56,0.7)":"rgba(184,98,26,0.75)"}}>
-              Giriş sonrası Hesaplar
+              Birden fazla hesap
             </span>{" "}
-            menüsünden ekleyebilirsiniz.
+            bağlayabilirsiniz.
           </p>
         </div>
 
@@ -347,6 +401,7 @@ function LoginScreen({ loginMs, loginGoogle, loginDemo, themeKey, toggleTheme, C
             {icon:"🗓️",label:"Takvim"},
             {icon:"🔔",label:"Bildirimler"},
             {icon:"👥",label:"Davet Gönder"},
+            {icon:"📧",label:"Yandex Mail"},
           ].map(f=>(
             <div key={f.label} style={{display:"flex",alignItems:"center",gap:"6px",
               padding:"6px 14px",borderRadius:"999px",
@@ -413,14 +468,16 @@ function SkeletonCard({ C }) {
 
 
 // ── CONFIG ────────────────────────────────────────────────────────────────────
-const MS_CLIENT_ID    = "774d7d5a-1c96-42e8-8ce0-41fa960bab14";
+const MS_CLIENT_ID     = "774d7d5a-1c96-42e8-8ce0-41fa960bab14";
 const GOOGLE_CLIENT_ID = "923407886232-76tom5gvm5b7cnrdeonknc5mjb63vv7i.apps.googleusercontent.com";
-const REDIRECT_URI    = window.location.origin;
-const MS_SCOPES       = "openid profile User.Read Calendars.ReadWrite";
-const MS_AUTH_URL     = "https://login.microsoftonline.com/common/oauth2/v2.0/authorize";
-const MS_TOKEN_URL    = "https://login.microsoftonline.com/common/oauth2/v2.0/token";
-const GG_SCOPES       = "https://www.googleapis.com/auth/calendar";
-const GG_AUTH_URL     = "https://accounts.google.com/o/oauth2/v2/auth";
+const YANDEX_CLIENT_ID = "f74a62cb05144593b55d5bbb9153971f";
+const REDIRECT_URI     = window.location.origin;
+const MS_SCOPES        = "openid profile User.Read Calendars.ReadWrite";
+const MS_AUTH_URL      = "https://login.microsoftonline.com/common/oauth2/v2.0/authorize";
+const MS_TOKEN_URL     = "https://login.microsoftonline.com/common/oauth2/v2.0/token";
+const GG_SCOPES        = "https://www.googleapis.com/auth/calendar";
+const GG_AUTH_URL      = "https://accounts.google.com/o/oauth2/v2/auth";
+const YA_AUTH_URL      = "https://oauth.yandex.com/authorize";
 
 // ── THEMES ────────────────────────────────────────────────────────────────────
 const THEMES = {
@@ -572,6 +629,60 @@ function useIsMobile() {
 }
 
 // ── SOURCE BADGE ──────────────────────────────────────────────────────────────
+
+// ── MAIL-CALENDAR SVG ICON ────────────────────────────────────────────────────
+function MailCalIcon({ size = 32, style = {} }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg" style={style}>
+      <defs>
+        <linearGradient id="mcBg" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stopColor="#231f1c"/>
+          <stop offset="100%" stopColor="#1a1614"/>
+        </linearGradient>
+        <linearGradient id="mcAmber" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stopColor="#c97c2e"/>
+          <stop offset="100%" stopColor="#e8a838"/>
+        </linearGradient>
+        <linearGradient id="mcMail" x1="60" y1="200" x2="340" y2="420" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stopColor="#2a2218"/>
+          <stop offset="100%" stopColor="#1c1814"/>
+        </linearGradient>
+      </defs>
+      {/* Arka plan */}
+      <rect width="512" height="512" rx="112" fill="url(#mcBg)"/>
+      <rect x="1" y="1" width="510" height="510" rx="111" fill="none" stroke="rgba(255,255,255,0.07)" strokeWidth="2"/>
+      {/* Zarf gövde */}
+      <rect x="52" y="210" width="288" height="198" rx="20" fill="url(#mcMail)" stroke="url(#mcAmber)" strokeWidth="14"/>
+      {/* Zarf V kapak */}
+      <path d="M52 228 L196 328 L340 228" fill="none" stroke="url(#mcAmber)" strokeWidth="14" strokeLinejoin="round"/>
+      {/* Alt köşe çizgiler */}
+      <path d="M52 390 L148 312" fill="none" stroke="rgba(232,168,56,0.28)" strokeWidth="9"/>
+      <path d="M340 390 L244 312" fill="none" stroke="rgba(232,168,56,0.28)" strokeWidth="9"/>
+      {/* Takvim gövde */}
+      <rect x="276" y="72" width="190" height="192" rx="24" fill="#1c1917" stroke="url(#mcAmber)" strokeWidth="12"/>
+      {/* Takvim üst bar */}
+      <rect x="276" y="72" width="190" height="58" rx="24" fill="url(#mcAmber)" fillOpacity="0.22"/>
+      <rect x="276" y="110" width="190" height="20" fill="url(#mcAmber)" fillOpacity="0.22"/>
+      {/* Halkalar */}
+      <rect x="316" y="48" width="17" height="54" rx="8.5" fill="url(#mcAmber)"/>
+      <rect x="429" y="48" width="17" height="54" rx="8.5" fill="url(#mcAmber)"/>
+      {/* Grid noktaları */}
+      <circle cx="312" cy="172" r="7" fill="#e8a838" fillOpacity="0.4"/>
+      <circle cx="371" cy="172" r="7" fill="#e8a838" fillOpacity="0.7"/>
+      <circle cx="430" cy="172" r="7" fill="#e8a838" fillOpacity="0.3"/>
+      <circle cx="312" cy="220" r="7" fill="#e8a838" fillOpacity="0.3"/>
+      <circle cx="430" cy="220" r="7" fill="#e8a838" fillOpacity="0.5"/>
+      {/* Vurgulu gün */}
+      <rect x="344" y="196" width="54" height="52" rx="10" fill="url(#mcAmber)" fillOpacity="0.9"/>
+      {/* Bağlantı çizgisi */}
+      <path d="M338 262 Q308 230 290 210" fill="none" stroke="url(#mcAmber)" strokeWidth="7" strokeDasharray="8 6" strokeOpacity="0.55"/>
+      <polygon points="282,202 300,202 291,220" fill="#e8a838" fillOpacity="0.7"/>
+      {/* Üst ışık */}
+      <rect x="112" y="1" width="288" height="2" rx="1" fill="rgba(255,255,255,0.08)"/>
+    </svg>
+  );
+}
+
 function SourceBadge({ source, small }) {
   const size = small ? "10px" : "11px";
   const pad  = small ? "2px 6px" : "3px 8px";
@@ -856,7 +967,7 @@ function AddForm({ form, setForm, onSave, onCancel, saving, C, msConnected, goog
 }
 
 // ── ACCOUNT PANEL ─────────────────────────────────────────────────────────────
-function AccountPanel({ msUser, googleUser, onConnectMs, onConnectGoogle, onDisconnectMs, onDisconnectGoogle, C, isMobile, onClose, isClosing }) {
+function AccountPanel({ msUser, googleUser, yandexUser, onConnectMs, onConnectGoogle, onConnectYandex, onDisconnectMs, onDisconnectGoogle, onDisconnectYandex, C, isMobile, onClose, isClosing }) {
   const closing = isClosing;
   const handleClose = onClose;
   const wrap = isMobile
@@ -922,7 +1033,7 @@ function AccountPanel({ msUser, googleUser, onConnectMs, onConnectGoogle, onDisc
           <div>
             <h3 style={{margin:0,fontSize:"22px",fontWeight:800,color:C.text}}>🔗 Hesap Bağlantıları</h3>
             <p style={{margin:"4px 0 0",fontSize:"13px",color:C.muted}}>
-              {[msUser,googleUser].filter(Boolean).length} / 2 hesap bağlı
+              {[msUser,googleUser,yandexUser].filter(Boolean).length} / 3 hesap bağlı
             </p>
           </div>
           {!isMobile && (
@@ -933,7 +1044,7 @@ function AccountPanel({ msUser, googleUser, onConnectMs, onConnectGoogle, onDisc
         {/* Progress bar */}
         <div style={{marginBottom:"24px"}}>
           <div style={{height:"6px",background:C.border,borderRadius:"3px",overflow:"hidden"}}>
-            <div style={{height:"100%",borderRadius:"3px",background:C.gradient,width:`${[msUser,googleUser].filter(Boolean).length * 50}%`,transition:"width 0.6s cubic-bezier(0.34,1.56,0.64,1)"}}/> 
+            <div style={{height:"100%",borderRadius:"3px",background:C.gradient,width:`${[msUser,googleUser,yandexUser].filter(Boolean).length * 33.33}%`,transition:"width 0.6s cubic-bezier(0.34,1.56,0.64,1)"}}/> 
           </div>
         </div>
 
@@ -948,6 +1059,11 @@ function AccountPanel({ msUser, googleUser, onConnectMs, onConnectGoogle, onDisc
             icon="📗" title="Google Calendar" connected={!!googleUser} user={googleUser}
             onConnect={onConnectGoogle} onDisconnect={onDisconnectGoogle}
             accentColor="#4285f4" bgColor="rgba(66,133,244,0.2)"
+          />
+          <AccountRow
+            icon="📧" title="Yandex Mail" connected={!!yandexUser} user={yandexUser}
+            onConnect={onConnectYandex} onDisconnect={onDisconnectYandex}
+            accentColor="#e8180c" bgColor="rgba(232,24,12,0.15)"
           />
         </div>
 
@@ -976,6 +1092,7 @@ export default function App() {
   // Auth states
   const [msUser,  setMsUser]  = useState(null);
   const [ggUser,  setGgUser]  = useState(null);
+  const [yaUser,  setYaUser]  = useState(null);
 
   // Events
   const [msEvents, setMsEvents]   = useState([]);
@@ -1091,9 +1208,11 @@ export default function App() {
     // Restore sessions
     const msToken=sessionStorage.getItem("ms_token"), msExpiry=sessionStorage.getItem("ms_expiry");
     const ggToken=sessionStorage.getItem("gg_token"), ggExpiry=sessionStorage.getItem("gg_expiry");
+    const yaToken=sessionStorage.getItem("ya_token"), yaExpiry=sessionStorage.getItem("ya_expiry");
     let hasSession=false;
     if(msToken&&msExpiry&&Date.now()<parseInt(msExpiry)){ loadMsUser(msToken); loadMsEvents(msToken); hasSession=true; }
     if(ggToken&&ggExpiry&&Date.now()<parseInt(ggExpiry)){ loadGgUser(ggToken); loadGgEvents(ggToken); hasSession=true; }
+    if(yaToken&&yaExpiry&&Date.now()<parseInt(yaExpiry)){ loadYaUser(yaToken); hasSession=true; }
     if(hasSession) setScreen("app");
   },[]);
 
@@ -1202,6 +1321,48 @@ export default function App() {
   };
   const disconnectGoogle=()=>{ ["gg_token","gg_expiry"].forEach(k=>sessionStorage.removeItem(k)); setGgUser(null); setGgEvents([]); };
 
+  // ── Yandex Auth ────────────────────────────────────────────────────────────
+  const loginYandex=()=>{
+    const s=Math.random().toString(36).substring(2);
+    sessionStorage.setItem("ya_state",s);
+    const params=new URLSearchParams({
+      client_id: YANDEX_CLIENT_ID,
+      response_type: "token",
+      redirect_uri: REDIRECT_URI,
+      state: s,
+      force_confirm: "no",
+    });
+    window.location.href=`${YA_AUTH_URL}?${params}`;
+  };
+
+  // Yandex implicit flow — token in URL hash
+  useEffect(()=>{
+    const hash=window.location.hash;
+    if(!hash.includes("access_token")) return;
+    const params=new URLSearchParams(hash.substring(1));
+    const token=params.get("access_token"), expiresIn=params.get("expires_in"), state=params.get("state");
+    if(!token) return;
+    // Only handle if ya_state is set (Yandex login)
+    const yaState=sessionStorage.getItem("ya_state");
+    if(!yaState) return;
+    if(state && state!==yaState) return;
+    sessionStorage.removeItem("ya_state");
+    window.history.replaceState({},document.title,window.location.pathname);
+    sessionStorage.setItem("ya_token",token);
+    sessionStorage.setItem("ya_expiry",String(Date.now()+parseInt(expiresIn||3600)*1000));
+    loadYaUser(token);
+    setScreen("app");
+  },[]);
+
+  const loadYaUser=async(token)=>{
+    try{
+      const r=await fetch("https://login.yandex.ru/info?format=json",{headers:{Authorization:`OAuth ${token}`}});
+      const data=await r.json();
+      setYaUser(data);
+    } catch {}
+  };
+  const disconnectYandex=()=>{ ["ya_token","ya_expiry","ya_state"].forEach(k=>sessionStorage.removeItem(k)); setYaUser(null); };
+
   // ── Save Event ─────────────────────────────────────────────────────────────
   const saveEvent=async()=>{
     if(!form.subject.trim()) return showToast("Başlık gerekli!","error");
@@ -1276,7 +1437,7 @@ export default function App() {
 
   // ── LOGIN SCREEN ───────────────────────────────────────────────────────────
   if(screen==="login"){
-    return <LoginScreen loginMs={loginMs} loginGoogle={loginGoogle} loginDemo={loginDemo} themeKey={themeKey} toggleTheme={toggleTheme} C={C} />;
+    return <LoginScreen loginMs={loginMs} loginGoogle={loginGoogle} loginYandex={loginYandex} loginDemo={loginDemo} themeKey={themeKey} toggleTheme={toggleTheme} C={C} />;
   }
 
   // ── APP ────────────────────────────────────────────────────────────────────
@@ -1334,7 +1495,7 @@ export default function App() {
 
       {toast&&<div className="toast-in" style={{position:"fixed",top:"20px",left:"50%",transform:"translateX(-50%)",zIndex:9999,background:toast.type==="error"?C.danger:C.success,color:"white",padding:"13px 26px",borderRadius:"16px",boxShadow:`0 10px 40px ${toast.type==="error"?"rgba(255,68,102,0.4)":"rgba(0,229,160,0.35)"}`,fontWeight:700,fontSize:"14px",whiteSpace:"nowrap",maxWidth:"90vw",display:"flex",alignItems:"center",gap:"8px"}}>{toast.msg}</div>}
       {selected&&<DetailModal event={selected} onClose={closeSelected} onDelete={deleteEvent} C={C} isMobile={isMobile} isClosing={selectedClosing}/>}
-      {(showAccounts||accountsClosing)&&<AccountPanel msUser={msUser} googleUser={ggUser} onConnectMs={loginMs} onConnectGoogle={loginGoogle} onDisconnectMs={()=>{disconnectMs();if(!ggUser){setScreen("login");}}} onDisconnectGoogle={()=>{disconnectGoogle();if(!msUser){setScreen("login");}}} C={C} isMobile={isMobile} onClose={closeAccounts} isClosing={accountsClosing}/>}
+      {(showAccounts||accountsClosing)&&<AccountPanel msUser={msUser} googleUser={ggUser} yandexUser={yaUser} onConnectMs={loginMs} onConnectGoogle={loginGoogle} onConnectYandex={loginYandex} onDisconnectMs={()=>{disconnectMs();if(!ggUser&&!yaUser){setScreen("login");}}} onDisconnectGoogle={()=>{disconnectGoogle();if(!msUser&&!yaUser){setScreen("login");}}} onDisconnectYandex={()=>{disconnectYandex();if(!msUser&&!ggUser){setScreen("login");}}} C={C} isMobile={isMobile} onClose={closeAccounts} isClosing={accountsClosing}/>}
       {dayEvents&&(
         <div onClick={closeDayEvents} className={dayEventsClosing?"modal-backdrop-out":"modal-backdrop"} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.6)",zIndex:300,display:"flex",alignItems:isMobile?"flex-end":"center",justifyContent:"center"}}>
           <div onClick={e=>e.stopPropagation()} className={dayEventsClosing?(isMobile?"modal-content-mobile-out":"modal-content-desktop-out"):(isMobile?"modal-content-mobile":"modal-content-desktop")} style={{background:C.surface,borderRadius:isMobile?"24px 24px 0 0":"24px",padding:"24px",width:"100%",maxWidth:isMobile?"100%":"460px",maxHeight:"70vh",overflowY:"auto"}}>
@@ -1357,7 +1518,7 @@ export default function App() {
       {/* HEADER */}
       <header style={{background:C.header,padding:"0 20px",height:"60px",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:100,boxShadow:"0 2px 30px rgba(0,0,0,0.3)",borderBottom:"1px solid rgba(255,255,255,0.06)"}}>
         <div style={{display:"flex",alignItems:"center",gap:"12px"}}>
-          <div className="logo-icon" style={{width:"34px",height:"34px",borderRadius:"10px",background:C.gradient,display:"flex",alignItems:"center",justifyContent:"center",fontSize:"18px",cursor:"default"}}>📅</div>
+          <AppIcon size={34} style={{borderRadius:"10px",cursor:"default",filter:"drop-shadow(0 2px 8px rgba(200,130,40,0.4))"}} />
           <div>
             <div style={{fontWeight:700,fontSize:"15px",color:"white"}}>{demoMode?"Demo — ":""}Evrensel Takvim</div>
             <div style={{display:"flex",gap:"6px",alignItems:"center"}}>
