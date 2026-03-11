@@ -13,6 +13,37 @@ module.exports = async function handler(req, res) {
     return res.status(400).json({ error: "subject veya body gerekli" });
   }
 
+  // quoted-printable decode
+  function decodeQP(str) {
+    return str
+      .replace(/=\r\n/g, "")
+      .replace(/=([0-9A-Fa-f]{2})/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
+  }
+
+  // base64 decode
+  function decodeB64(str) {
+    try { return Buffer.from(str.replace(/\s/g, ""), "base64").toString("utf8"); } catch { return str; }
+  }
+
+  function cleanBody(raw) {
+    if (!raw) return "";
+    let text = raw;
+    // base64 encoded block
+    if (/^[A-Za-z0-9+/=\r\n]{40,}$/.test(raw.trim())) {
+      text = decodeB64(raw.trim());
+    }
+    // quoted-printable
+    if (text.includes("=C3=") || text.includes("=C4=") || text.includes("=\r\n")) {
+      text = decodeQP(text);
+    }
+    // HTML etiketlerini temizle
+    text = text.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+    return text.substring(0, 1500);
+  }
+
+  const cleanSubject = decodeQP(subject || "");
+  const cleanBodyText = cleanBody(body || "");
+
   const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
   if (!ANTHROPIC_API_KEY) {
     return res.status(500).json({ error: "ANTHROPIC_API_KEY eksik" });
@@ -22,9 +53,9 @@ module.exports = async function handler(req, res) {
 
 E-posta:
 Gönderen: ${from || ""}
-Konu: ${subject || ""}
+Konu: ${cleanSubject}
 Tarih: ${date || ""}
-İçerik: ${body || ""}
+İçerik: ${cleanBodyText}
 
 Sadece JSON döndür, başka hiçbir şey yazma:
 {
