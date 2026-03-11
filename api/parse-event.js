@@ -1,6 +1,4 @@
-// api/parse-event.js — Vercel Serverless Function
-// Mail içeriğini Claude API'ye gönderir, event bilgilerini çıkarır
-
+// api/parse-event.js - Vercel Serverless Function
 module.exports = async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
@@ -9,18 +7,16 @@ module.exports = async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
   const { subject, body, from, date } = req.body;
-  if (!subject && !body) {
-    return res.status(400).json({ error: "subject veya body gerekli" });
-  }
+  if (!subject && !body) return res.status(400).json({ error: "missing fields" });
 
-  // quoted-printable decode
+  const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
+  if (!ANTHROPIC_API_KEY) return res.status(500).json({ error: "API key missing" });
+
   function decodeQP(str) {
-    return str
-      .replace(/=\r\n/g, "")
-      .replace(/=([0-9A-Fa-f]{2})/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
+    if (!str) return "";
+    return str.replace(/=\r\n/g, "").replace(/=([0-9A-Fa-f]{2})/g, (_, h) => String.fromCharCode(parseInt(h, 16)));
   }
 
-  // base64 decode
   function decodeB64(str) {
     try { return Buffer.from(str.replace(/\s/g, ""), "base64").toString("utf8"); } catch { return str; }
   }
@@ -28,48 +24,20 @@ module.exports = async function handler(req, res) {
   function cleanBody(raw) {
     if (!raw) return "";
     let text = raw;
-    // base64 encoded block
-    if (/^[A-Za-z0-9+/=\r\n]{40,}$/.test(raw.trim())) {
+    if (/^[A-Za-z0-9+/=\r\n]{60,}$/.test(raw.trim())) {
       text = decodeB64(raw.trim());
     }
-    // quoted-printable
     if (text.includes("=C3=") || text.includes("=C4=") || text.includes("=\r\n")) {
       text = decodeQP(text);
     }
-    // HTML etiketlerini temizle
     text = text.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
     return text.substring(0, 1500);
   }
 
-  const cleanSubject = decodeQP(subject || "");
-  const cleanBodyText = cleanBody(body || "");
+  const cleanedSubject = decodeQP(subject || "");
+  const cleanedBody = cleanBody(body || "");
 
-  const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
-  if (!ANTHROPIC_API_KEY) {
-    return res.status(500).json({ error: "ANTHROPIC_API_KEY eksik" });
-  }
-
-  const prompt = `Aşağıdaki e-posta içeriğini analiz et. Eğer bu e-postada bir etkinlik, toplantı, randevu, davet, webinar, konferans veya takvime eklenebilecek bir olay varsa, bilgileri JSON formatında çıkar. Yoksa {"event": null} döndür.
-
-E-posta:
-Gönderen: ${from || ""}
-Konu: ${cleanSubject}
-Tarih: ${date || ""}
-İçerik: ${cleanBodyText}
-
-Sadece JSON döndür, başka hiçbir şey yazma:
-{
-  "event": {
-    "title": "etkinlik başlığı",
-    "start": "YYYY-MM-DDTHH:MM:SS",
-    "end": "YYYY-MM-DDTHH:MM:SS",
-    "location": "yer veya online link",
-    "description": "kısa açıklama",
-    "attendees": ["email1", "email2"]
-  }
-}
-
-Eğer saat belirsizse 09:00 varsayılan olarak kullan. Tarih belirsizse null döndür.`;
+  const prompt = "Analyze this email and extract calendar event info as JSON. If no event found, return {\"event\":null}.\n\nFrom: " + (from || "") + "\nSubject: " + cleanedSubject + "\nDate: " + (date || "") + "\nBody: " + cleanedBody + "\n\nReturn ONLY valid JSON, nothing else:\n{\"event\":{\"title\":\"...\",\"start\":\"YYYY-MM-DDTHH:MM:SS\",\"end\":\"YYYY-MM-DDTHH:MM:SS\",\"location\":\"...\",\"description\":\"...\",\"attendees\":[]}}\nIf time unknown use 09:00. If date unknown return {\"event\":null}.";
 
   try {
     const response = await fetch("https://api.anthropic.com/v1/messages", {
@@ -87,15 +55,17 @@ Eğer saat belirsizse 09:00 varsayılan olarak kullan. Tarih belirsizse null dö
     });
 
     const data = await response.json();
-    const text = data.content?.[0]?.text || "{}";
+    if (!data.content || !data.content[0]) {
+      console.error("Empty Claude response:", JSON.stringify(data));
+      return res.status(200).json({ event: null });
+    }
 
-    // JSON parse
-    const clean = text.replace(/```json|```/g, "").trim();
+    const text = data.content[0].text || "{}";
+    const clean = text.replace(/```json/g, "").replace(/```/g, "").trim();
     const result = JSON.parse(clean);
-
     return res.status(200).json(result);
   } catch (err) {
     console.error("Parse error:", err.message);
-    return res.status(500).json({ error: "AI parse hatası: " + err.message });
+    return res.status(500).json({ error: err.message });
   }
-}
+};
