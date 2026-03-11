@@ -479,6 +479,11 @@ const GG_SCOPES        = "https://www.googleapis.com/auth/calendar";
 const GG_AUTH_URL      = "https://accounts.google.com/o/oauth2/v2/auth";
 const YA_AUTH_URL      = "https://oauth.yandex.com/authorize";
 
+// API Base URL - use local server in development, Vercel in production
+const API_BASE = process.env.NODE_ENV === "development" 
+  ? "http://localhost:3001" 
+  : "/api";
+
 // ── THEMES ────────────────────────────────────────────────────────────────────
 const THEMES = {
   dark: {
@@ -990,7 +995,7 @@ function YandexMailSection({ C, yandexUser, onClose }) {
     if (!appPass) return;
     setLoading(true); setError(""); setMails([]); setEvents([]);
     try {
-      const res = await fetch("/api/yandex-mail", {
+      const res = await fetch(`${API_BASE}/yandex-mail`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, appPassword: appPass }),
@@ -1004,7 +1009,7 @@ function YandexMailSection({ C, yandexUser, onClose }) {
       for (const mail of data.messages) {
         try {
           if (!mail.subject && !mail.body) continue;
-          const r = await fetch("/api/parse-event", {
+          const r = await fetch(`${API_BASE}/parse-event`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ subject: mail.subject, body: mail.body, from: mail.from, date: mail.date }),

@@ -10,7 +10,10 @@ module.exports = async function handler(req, res) {
   if (!subject && !body) return res.status(400).json({ error: "missing fields" });
 
   const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
-  if (!ANTHROPIC_API_KEY) return res.status(500).json({ error: "API key missing" });
+  if (!ANTHROPIC_API_KEY) {
+    console.error("ANTHROPIC_API_KEY not configured");
+    return res.status(500).json({ error: "API key missing - configure ANTHROPIC_API_KEY in Vercel environment" });
+  }
 
   function decodeQP(str) {
     if (!str) return "";
@@ -48,7 +51,7 @@ module.exports = async function handler(req, res) {
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
-        model: "claude-haiku-4-5-20251001",
+        model: "claude-3-5-haiku-20241022",
         max_tokens: 500,
         messages: [{ role: "user", content: prompt }],
       }),
